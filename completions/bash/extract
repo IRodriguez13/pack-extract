@@ -1,0 +1,10 @@
+_extract() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+
+    if [[ $COMP_CWORD -eq 1 ]]; then
+        compopt -o filenames 2>/dev/null
+        COMPREPLY=( $(compgen -f -- "$cur") )
+    fi
+}
+
+complete -F _extract extract

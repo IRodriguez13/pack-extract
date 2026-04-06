@@ -1,0 +1,103 @@
+.TH EXTRACT 1 "April 2026" "pack-extract 1.0.0" "User Commands"
+.SH NAME
+extract \- automatically extract compressed archives
+.SH SYNOPSIS
+.B extract
+.I archive
+.SH DESCRIPTION
+.B extract
+detects the format of a compressed archive using MIME type detection
+and extracts its contents into the current directory. After extraction,
+it prints the list of newly created files and directories.
+.PP
+Format detection is automatic via
+.BR file (1)
+so the user does not need to remember tool-specific flags.
+.SH SUPPORTED FORMATS
+.TS
+l l l.
+Format	MIME type	Tool used
+_
+\&.tar	application/x-tar	tar
+\&.tar.gz, .tgz	application/gzip	tar
+\&.tar.xz, .txz	application/x-xz	tar
+\&.tar.bz2, .tbz2	application/x-bzip2	tar
+\&.tar.zst, .tzst	application/zstd	tar \-\-zstd
+\&.tar.lz4, .tlz4	application/x-lz4	tar + lz4
+\&.tar.lz	application/x-lzip	tar \-\-lzip
+\&.gz	application/gzip	gunzip
+\&.xz	application/x-xz	unxz
+\&.bz2	application/x-bzip2	bunzip2
+\&.zst	application/zstd	zstd
+\&.lz4	application/x-lz4	lz4
+\&.zip	application/zip	unzip
+\&.7z	application/x-7z-compressed	7z
+\&.rar	application/x-rar-compressed	unrar
+\&.cpio	application/x-cpio	cpio
+.TE
+.PP
+For gzip, xz, bzip2, zstd, and lz4, the tool distinguishes between
+tar archives (e.g.\& .tar.gz) and plain compressed files (e.g.\& .gz)
+by inspecting the file extension.
+.SH EXAMPLES
+Extract a gzip-compressed tarball:
+.PP
+.RS
+.nf
+$ extract backup.tar.gz
+.fi
+.RE
+.PP
+Extract a zip file:
+.PP
+.RS
+.nf
+$ extract project.zip
+.fi
+.RE
+.PP
+Extract a 7z archive:
+.PP
+.RS
+.nf
+$ extract data.7z
+.fi
+.RE
+.PP
+Decompress a single gzip file:
+.PP
+.RS
+.nf
+$ extract notes.txt.gz
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Successful extraction.
+.TP
+.B 1
+An error occurred (file not found, unsupported format, extraction failure).
+.SH DEPENDENCIES
+.B extract
+relies on standard system utilities. Not all need to be installed;
+only those for the formats you use:
+.BR tar (1),
+.BR gunzip (1),
+.BR unxz (1),
+.BR bunzip2 (1),
+.BR zstd (1),
+.BR lz4 (1),
+.BR unzip (1),
+.BR 7z (1),
+.BR unrar (1),
+.BR cpio (1),
+.BR file (1).
+.SH SEE ALSO
+.BR pack (1),
+.BR tar (1),
+.BR gzip (1),
+.BR zip (1),
+.BR 7z (1)
+.SH AUTHORS
+Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>

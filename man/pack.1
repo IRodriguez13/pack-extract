@@ -1,0 +1,114 @@
+.TH PACK 1 "April 2026" "pack-extract 1.0.0" "User Commands"
+.SH NAME
+pack \- create compressed archives in the specified format
+.SH SYNOPSIS
+.B pack
+.I format source
+.SH DESCRIPTION
+.B pack
+creates an archive or compressed file from the given
+.I source
+(file or directory) in the specified
+.IR format .
+The output is placed in the current directory, named after the source
+with the appropriate extension appended.
+.PP
+This avoids having to remember tool-specific flags for each format.
+.SH SUPPORTED FORMATS
+.SS Archive formats (files and directories)
+.TS
+l l l.
+Format	Extension	Tool used
+_
+tar	.tar	tar
+tar.gz	.tar.gz	tar + gzip
+tar.xz	.tar.xz	tar + xz
+tar.bz2	.tar.bz2	tar + bzip2
+tar.zst	.tar.zst	tar \-\-zstd
+tar.lz4	.tar.lz4	tar + lz4
+tar.lz	.tar.lz	tar \-\-lzip
+zip	.zip	zip
+7z	.7z	7z
+.TE
+.SS Single-file compression (files only)
+.TS
+l l l.
+Format	Extension	Tool used
+_
+gz	.gz	gzip
+bz2	.bz2	bzip2
+xz	.xz	xz
+zstd	.zst	zstd
+lz4	.lz4	lz4
+.TE
+.PP
+Single-file formats (gz, bz2, xz, zstd, lz4) refuse to operate on
+directories. Use an archive format instead.
+.SH EXAMPLES
+Create a gzip-compressed tarball of a directory:
+.PP
+.RS
+.nf
+$ pack tar.gz project/
+.fi
+.RE
+.PP
+Create a zip archive:
+.PP
+.RS
+.nf
+$ pack zip src/
+.fi
+.RE
+.PP
+Create a 7z archive:
+.PP
+.RS
+.nf
+$ pack 7z backups/
+.fi
+.RE
+.PP
+Create a zstd-compressed tarball:
+.PP
+.RS
+.nf
+$ pack tar.zst dataset/
+.fi
+.RE
+.PP
+Compress a single file with gzip:
+.PP
+.RS
+.nf
+$ pack gz report.txt
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Archive created successfully.
+.TP
+.B 1
+An error occurred (source not found, unsupported format, directory with
+single-file format, creation failure).
+.SH DEPENDENCIES
+.B pack
+relies on standard system utilities. Not all need to be installed;
+only those for the formats you use:
+.BR tar (1),
+.BR gzip (1),
+.BR bzip2 (1),
+.BR xz (1),
+.BR zstd (1),
+.BR lz4 (1),
+.BR zip (1),
+.BR 7z (1).
+.SH SEE ALSO
+.BR extract (1),
+.BR tar (1),
+.BR gzip (1),
+.BR zip (1),
+.BR 7z (1)
+.SH AUTHORS
+Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
