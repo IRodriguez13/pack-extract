@@ -1,10 +1,19 @@
 _pack() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
+    local prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Handle options for any position
+    if [[ "$cur" == -* ]]; then
+        local options="--version --help -v -h"
+        COMPREPLY=( $(compgen -W "$options" -- "$cur") )
+        return 0
+    fi
 
     case $COMP_CWORD in
         1)
-            local formats="tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz zip 7z gz bz2 xz zstd lz4"
-            COMPREPLY=( $(compgen -W "$formats" -- "$cur") )
+            local formats="tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br"
+            local options="--version --help -v -h"
+            COMPREPLY=( $(compgen -W "$formats $options" -- "$cur") )
             ;;
         2)
             compopt -o filenames 2>/dev/null

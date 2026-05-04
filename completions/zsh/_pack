@@ -1,27 +1,14 @@
 #compdef pack
 
 _pack() {
-    if (( CURRENT == 2 )); then
-        local -a formats=(
-            'tar:Plain tar archive'
-            'tar.gz:Gzip compressed tar'
-            'tar.xz:XZ compressed tar'
-            'tar.bz2:Bzip2 compressed tar'
-            'tar.zst:Zstd compressed tar'
-            'tar.lz4:LZ4 compressed tar'
-            'tar.lz:Lzip compressed tar'
-            'zip:ZIP archive'
-            '7z:7-Zip archive'
-            'gz:Gzip (single file)'
-            'bz2:Bzip2 (single file)'
-            'xz:XZ (single file)'
-            'zstd:Zstd (single file)'
-            'lz4:LZ4 (single file)'
-        )
-        _describe 'format' formats
-    elif (( CURRENT == 3 )); then
-        _files
-    fi
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
+
+    _arguments \
+        '(-v --version)'{-v,--version}'[Show version information]' \
+        '(-h --help)'{-h,--help}'[Show help message]' \
+        '1:format:(tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br)' \
+        '2:source:_files'
 }
 
 _pack "$@"

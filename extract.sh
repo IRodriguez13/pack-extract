@@ -1,11 +1,45 @@
 #!/usr/bin/env bash
 
-file="$1"
+VERSION="1.5.2"
+AUTHOR="Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>"
+
+show_version() {
+  echo "extract (pack-extract) $VERSION"
+  echo "Copyright (C) 2026 Iván Ezequiel Rodriguez"
+  echo "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>."
+  echo "This is free software: you are free to change and redistribute it."
+  echo "There is NO WARRANTY, to the extent permitted by law."
+  echo ""
+  echo "Source: https://github.com/IRodriguez13/pack-extract"
+  echo ""
+  echo "Escrito por Iván Ezequiel Rodriguez."
+}
+
+show_usage() {
+  echo "Usage: extract <archive>"
+  echo "Extracts compressed archives automatically by detecting the format"
+  echo ""
+  echo "Options:"
+  echo "  -v, --version    Show version information and exit"
+  echo "  -h, --help       Show this help message and exit"
+}
 
 if [[ $# -eq 0 ]]; then
-  echo "Usage: extract <archive>"
+  show_usage
   exit 1
 fi
+
+if [[ "$1" == "--version" || "$1" == "-v" ]]; then
+  show_version
+  exit 0
+fi
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+  show_usage
+  exit 0
+fi
+
+file="$1"
 
 if [[ ! -f "$file" ]]; then
   echo "Error: File not found: $file" >&2
@@ -21,7 +55,7 @@ mime=$(file --mime-type -b "$file")
 
 is_tar_inside() {
   case "$file" in
-    *.tar.*|*.tgz|*.tbz2|*.txz|*.tzst|*.tlz4) return 0 ;;
+    *.tar.*|*.tgz|*.tbz2|*.txz|*.tzst|*.tlz4|*.tlzo|*.tbr) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -67,6 +101,20 @@ case "$mime" in
     ;;
   application/x-lzip)
     tar --lzip -xf "$file"
+    ;;
+  application/x-lzop)
+    if is_tar_inside; then
+      tar --use-compress-program=lzop -xf "$file"
+    else
+      lzop -d -k "$file"
+    fi
+    ;;
+  application/x-brotli)
+    if is_tar_inside; then
+      tar --use-compress-program=brotli -xf "$file"
+    else
+      brotli -d -k "$file"
+    fi
     ;;
   application/zip)
     unzip -qq "$file"

@@ -2,7 +2,9 @@
 
 _extract() {
     _arguments \
-        '1:archive file:_files -g "*.{tar,tar.gz,tgz,tar.xz,txz,tar.bz2,tbz2,tar.zst,tzst,tar.lz4,tlz4,tar.lz,gz,xz,bz2,zst,lz4,zip,7z,rar,cpio}"'
+        '(-v --version)'{-v,--version}'[Show version information]' \
+        '(-h --help)'{-h,--help}'[Show help message]' \
+        '1:archive file:_files -g "*.{tar,tar.gz,tgz,tar.xz,txz,tar.bz2,tbz2,tar.zst,tzst,tar.lz4,tlz4,tar.lz,tlzo,tar.br,tbr,gz,xz,bz2,zst,lz4,lzo,br,zip,7z,rar,cpio}"'
 }
 
 _extract "$@"

@@ -14,6 +14,8 @@ Automatically extracts compressed archives by detecting the format.
 ### Usage
 ```bash
 extract <archive>
+extract --version
+extract --help
 ```
 
 ### Examples
@@ -36,11 +38,14 @@ extract notes.txt.gz
 | `.tar.zst` / `.tzst` | tar + zstd |
 | `.tar.lz4` / `.tlz4` | tar + lz4 |
 | `.tar.lz` | tar + lzip |
+| `.tar.lzo` / `.tlzo` | tar + lzop |
+| `.tar.br` / `.tbr` | tar + brotli |
 | `.gz` | gunzip |
 | `.xz` | unxz |
 | `.bz2` | bunzip2 |
 | `.zst` | zstd |
-| `.lz4` | lz4 |
+| `.lzo` | lzop |
+| `.br` | brotli |
 | `.zip` | unzip |
 | `.7z` | 7z |
 | `.rar` | unrar |
@@ -55,6 +60,8 @@ Packages files or directories into the specified format.
 ### Usage
 ```bash
 pack <format> <source>
+pack --version
+pack --help
 ```
 
 ### Examples
@@ -80,6 +87,8 @@ pack gz report.txt
 | `tar.zst` | `.tar.zst` | tar + zstd |
 | `tar.lz4` | `.tar.lz4` | tar + lz4 |
 | `tar.lz` | `.tar.lz` | tar + lzip |
+| `tar.lzo` | `.tar.lzo` | tar + lzop |
+| `tar.br` | `.tar.br` | tar + brotli |
 | `zip` | `.zip` | zip |
 | `7z` | `.7z` | 7z |
 
@@ -92,6 +101,8 @@ pack gz report.txt
 | `xz` | `.xz` | xz |
 | `zstd` | `.zst` | zstd |
 | `lz4` | `.lz4` | lz4 |
+| `lzo` | `.lzo` | lzop |
+| `br` | `.br` | brotli |
 
 The generated archive is created in the current directory with the source name.
 
@@ -131,6 +142,8 @@ Only the tools for the formats you use need to be installed:
 - `zstd` (optional, for zstd support)
 - `lz4` (optional, for lz4 support)
 - `lzip` (optional, for lzip support)
+- `lzop` (optional, for lzop support)
+- `brotli` (optional, for brotli support)
 - `zip` / `unzip`
 - `7z` (optional, for 7z support)
 - `unrar` (optional, for rar support)

@@ -1,7 +1,13 @@
-.TH EXTRACT 1 "April 2026" "pack-extract 1.0.0" "User Commands"
+.TH EXTRACT 1 "April 2026" "pack-extract 1.5.2" "User Commands"
 .SH NAME
 extract \- automatically extract compressed archives
 .SH SYNOPSIS
+.B extract
+.RB [ \-v | \-\-version ]
+.br
+.B extract
+.RB [ \-h | \-\-help ]
+.br
 .B extract
 .I archive
 .SH DESCRIPTION
@@ -13,6 +19,13 @@ it prints the list of newly created files and directories.
 Format detection is automatic via
 .BR file (1)
 so the user does not need to remember tool-specific flags.
+.SH OPTIONS
+.TP
+.B \-v, \-\-version
+Display version information and exit.
+.TP
+.B \-h, \-\-help
+Display help message and exit.
 .SH SUPPORTED FORMATS
 .TS
 l l l.
@@ -25,18 +38,22 @@ _
 \&.tar.zst, .tzst	application/zstd	tar \-\-zstd
 \&.tar.lz4, .tlz4	application/x-lz4	tar + lz4
 \&.tar.lz	application/x-lzip	tar \-\-lzip
+\&.tar.lzo, .tlzo	application/x-lzop	tar + lzop
+\&.tar.br, .tbr	application/x-brotli	tar + brotli
 \&.gz	application/gzip	gunzip
 \&.xz	application/x-xz	unxz
 \&.bz2	application/x-bzip2	bunzip2
 \&.zst	application/zstd	zstd
 \&.lz4	application/x-lz4	lz4
+\&.lzo	application/x-lzop	lzop
+\&.br	application/x-brotli	brotli
 \&.zip	application/zip	unzip
 \&.7z	application/x-7z-compressed	7z
 \&.rar	application/x-rar-compressed	unrar
 \&.cpio	application/x-cpio	cpio
 .TE
 .PP
-For gzip, xz, bzip2, zstd, and lz4, the tool distinguishes between
+For gzip, xz, bzip2, zstd, lz4, lzop, and brotli, the tool distinguishes between
 tar archives (e.g.\& .tar.gz) and plain compressed files (e.g.\& .gz)
 by inspecting the file extension.
 .SH EXAMPLES
@@ -88,6 +105,9 @@ only those for the formats you use:
 .BR bunzip2 (1),
 .BR zstd (1),
 .BR lz4 (1),
+.BR lzip (1),
+.BR lzop (1),
+.BR brotli (1),
 .BR unzip (1),
 .BR 7z (1),
 .BR unrar (1),

@@ -1,6 +1,13 @@
 _extract() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
 
+    # Handle options
+    if [[ "$cur" == -* ]]; then
+        local options="--version --help -v -h"
+        COMPREPLY=( $(compgen -W "$options" -- "$cur") )
+        return 0
+    fi
+
     if [[ $COMP_CWORD -eq 1 ]]; then
         compopt -o filenames 2>/dev/null
         COMPREPLY=( $(compgen -f -- "$cur") )

@@ -1,13 +1,51 @@
 #!/usr/bin/env bash
 
-if [[ $# -lt 2 ]]; then
+VERSION="1.5.2"
+AUTHOR="Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>"
+
+show_version() {
+  echo "pack (pack-extract) $VERSION"
+  echo "Copyright (C) 2026 Iván Ezequiel Rodriguez"
+  echo "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>."
+  echo "This is free software: you are free to change and redistribute it."
+  echo "There is NO WARRANTY, to the extent permitted by law."
+  echo ""
+  echo "Source: https://github.com/IRodriguez13/pack-extract"
+  echo ""
+  echo "Escrito por Iván Ezequiel Rodriguez."
+}
+
+show_usage() {
   echo "Usage: pack <format> <source>"
   echo "Packs files or directories into the specified format"
   echo ""
   echo "Supported formats:"
-  echo "  tar, tar.gz, tar.xz, tar.bz2, tar.zst, tar.lz4, tar.lz"
+  echo "  tar, tar.gz, tar.xz, tar.bz2, tar.zst, tar.lz4, tar.lz, tar.lzo, tar.br"
   echo "  zip, 7z"
-  echo "  gz, bz2, xz, zstd, lz4  (single file only)"
+  echo "  gz, bz2, xz, zstd, lz4, lzo, br  (single file only)"
+  echo ""
+  echo "Options:"
+  echo "  -v, --version    Show version information and exit"
+  echo "  -h, --help       Show this help message and exit"
+}
+
+if [[ $# -eq 0 ]]; then
+  show_usage
+  exit 1
+fi
+
+if [[ "$1" == "--version" || "$1" == "-v" ]]; then
+  show_version
+  exit 0
+fi
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+  show_usage
+  exit 0
+fi
+
+if [[ $# -lt 2 ]]; then
+  show_usage
   exit 1
 fi
 
@@ -59,6 +97,14 @@ case "$format" in
     echo "Creating lzip compressed tar archive..."
     tar --lzip -cf "$basename.tar.lz" "$source"
     ;;
+  tar.lzo)
+    echo "Creating lzop compressed tar archive..."
+    tar --use-compress-program=lzop -cf "$basename.tar.lzo" "$source"
+    ;;
+  tar.br)
+    echo "Creating brotli compressed tar archive..."
+    tar --use-compress-program=brotli -cf "$basename.tar.br" "$source"
+    ;;
   zip)
     echo "Creating zip archive..."
     zip -r "$basename.zip" "$source"
@@ -92,9 +138,19 @@ case "$format" in
     echo "Compressing with lz4..."
     lz4 "$source" "$basename.lz4"
     ;;
+  lzo)
+    single_file_guard
+    echo "Compressing with lzop..."
+    lzop -o "$basename.lzo" "$source"
+    ;;
+  br)
+    single_file_guard
+    echo "Compressing with brotli..."
+    brotli -o "$basename.br" "$source"
+    ;;
   *)
     echo "Error: Unsupported format: $format" >&2
-    echo "Supported formats: tar, tar.gz, tar.xz, tar.bz2, tar.zst, tar.lz4, tar.lz, zip, 7z, gz, bz2, xz, zstd, lz4" >&2
+    echo "Supported formats: tar, tar.gz, tar.xz, tar.bz2, tar.zst, tar.lz4, tar.lz, tar.lzo, tar.br, zip, 7z, gz, bz2, xz, zstd, lz4, lzo, br" >&2
     exit 1
     ;;
 esac
