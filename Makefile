@@ -39,12 +39,16 @@ MAN_PAGES = man/extract.1 man/pack.1
 BASH_COMPLETIONS = completions/bash/extract completions/bash/pack
 ZSH_COMPLETIONS = completions/zsh/_extract completions/zsh/_pack
 
-.PHONY: all clean install uninstall help
+.PHONY: all pack extract clean install uninstall help
 
 $(BUILD_DIR):
 	mkdir -p $@
 
 all: $(PACK) $(EXTRACT)
+
+pack: $(PACK)
+
+extract: $(EXTRACT)
 
 $(PACK): $(PACK_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
