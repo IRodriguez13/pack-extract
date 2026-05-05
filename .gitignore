@@ -1,0 +1,41 @@
+# Build directory
+build/
+
+# Compiled binaries
+pack
+extract
+
+# Object files
+*.o
+
+# Temporary files
+*~
+*.tmp
+*.bak
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Archives created during testing
+*.tar
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.tar.zst
+*.zip
+*.7z
+*.gz
+*.bz2
+*.xz
+*.zstd
+*.lz4
+*.lzo
+*.br
