@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-VERSION="1.5.2"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"
 AUTHOR="Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>"
 
 show_version() {

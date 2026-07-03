@@ -13,8 +13,7 @@
 #include <sys/stat.h>
 #include <archive.h>
 #include <archive_entry.h>
-
-#define VERSION "1.5.2"
+#include "version.h"
 
 void print_help(void) {
     printf(
@@ -35,10 +34,11 @@ void print_version(void) {
         "This is free software: you are free to change and redistribute it.\n"
         "There is NO WARRANTY, to the extent permitted by law.\n"
         "\n"
-        "Source: https://github.com/IRodriguez13/pack-extract\n"
+        "Source: %s\n"
         "\n"
         "Escrito por Iván Ezequiel Rodriguez.\n",
-        VERSION
+        PACK_EXTRACT_VERSION,
+        PACK_EXTRACT_SOURCE_URL
     );
 }
 

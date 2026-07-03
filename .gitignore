@@ -25,6 +25,7 @@ Thumbs.db
 *.log
 
 # Archives created during testing
+/dist/
 *.tar
 *.tar.gz
 *.tar.xz

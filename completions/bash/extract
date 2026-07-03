@@ -1,17 +1,27 @@
-_extract() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
+# bash completion for extract(1) v1.5.2 -*- shell-script -*-
 
-    # Handle options
-    if [[ "$cur" == -* ]]; then
-        local options="--version --help -v -h"
-        COMPREPLY=( $(compgen -W "$options" -- "$cur") )
-        return 0
+_extract()
+{
+    local cur prev words cword
+    _init_completion || return
+
+    local flags='--help --version -h -v'
+
+    case $prev in
+        -h|--help|-v|--version)
+            return
+            ;;
+    esac
+
+    if (( cword == 1 )); then
+        if [[ $cur == -* ]]; then
+            COMPREPLY=( $( compgen -W "$flags" -- "$cur" ) )
+        else
+            compopt -o filenames 2>/dev/null
+            COMPREPLY=( $( compgen -f -- "$cur" ) )
+        fi
     fi
+} &&
+    complete -F _extract extract
 
-    if [[ $COMP_CWORD -eq 1 ]]; then
-        compopt -o filenames 2>/dev/null
-        COMPREPLY=( $(compgen -f -- "$cur") )
-    fi
-}
-
-complete -F _extract extract
+# ex: filetype=sh

@@ -1,25 +1,33 @@
-_pack() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local prev="${COMP_WORDS[COMP_CWORD-1]}"
+# bash completion for pack(1) v1.5.2 -*- shell-script -*-
 
-    # Handle options for any position
-    if [[ "$cur" == -* ]]; then
-        local options="--version --help -v -h"
-        COMPREPLY=( $(compgen -W "$options" -- "$cur") )
-        return 0
-    fi
+_pack()
+{
+    local cur prev words cword split
+    _init_completion -s || return
 
-    case $COMP_CWORD in
-        1)
-            local formats="tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br"
-            local options="--version --help -v -h"
-            COMPREPLY=( $(compgen -W "$formats $options" -- "$cur") )
-            ;;
-        2)
-            compopt -o filenames 2>/dev/null
-            COMPREPLY=( $(compgen -f -- "$cur") )
+    local formats='tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br'
+    local flags='--help --version -h -v'
+
+    case $prev in
+        -h|--help|-v|--version)
+            return
             ;;
     esac
-}
 
-complete -F _pack pack
+    if (( cword == 1 )); then
+        if [[ $cur == -* ]]; then
+            COMPREPLY=( $( compgen -W "$flags" -- "$cur" ) )
+        else
+            COMPREPLY=( $( compgen -W "$formats $flags" -- "$cur" ) )
+        fi
+        return
+    fi
+
+    if (( cword == 2 )); then
+        compopt -o filenames 2>/dev/null
+        COMPREPLY=( $( compgen -f -- "$cur" ) )
+    fi
+} &&
+    complete -F _pack pack
+
+# ex: filetype=sh

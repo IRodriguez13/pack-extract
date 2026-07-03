@@ -1,4 +1,5 @@
 #compdef pack
+# zsh completion for pack(1) v1.5.2
 
 _pack() {
     local curcontext="$curcontext" state line
