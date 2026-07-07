@@ -113,19 +113,14 @@ An error occurred (source not found, unsupported format, directory with
 single-file format, creation failure).
 .SH DEPENDENCIES
 .B pack
-relies on standard system utilities. Not all need to be installed;
-only those for the formats you use:
-.BR tar (1),
-.BR gzip (1),
-.BR bzip2 (1),
-.BR xz (1),
-.BR zstd (1),
-.BR lz4 (1),
-.BR lzip (1),
-.BR lzop (1),
-.BR brotli (1),
-.BR zip (1),
-.BR 7z (1).
+and
+.B extract
+use
+.BR libarchive (3)
+for archive I/O. Build requires
+.BR libarchive-dev
+and
+.BR pkg-config (1).
 .SH SEE ALSO
 .BR extract (1),
 .BR tar (1),

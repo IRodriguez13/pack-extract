@@ -1,0 +1,23 @@
+Source: pack-extract
+Section: utils
+Priority: optional
+Maintainer: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               libarchive-dev,
+               gcc,
+               make
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/IRodriguez13/pack-extract
+Vcs-Browser: https://github.com/IRodriguez13/pack-extract
+Vcs-Git: https://github.com/IRodriguez13/pack-extract.git
+
+Package: pack-extract
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: create and extract archives via libarchive (pack/extract)
+ Two small CLI tools: pack creates archives; extract detects format and
+ unpacks. Implemented in C using libarchive (no per-format flag memorization).
+ .
+ Provides: pack, extract

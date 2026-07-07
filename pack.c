@@ -38,7 +38,9 @@ static const PackFormat formats[] = {
     {"tar.lz4",  ARCHIVE_FORMAT_TAR, ARCHIVE_FILTER_LZ4},
     {"tar.lz",   ARCHIVE_FORMAT_TAR, ARCHIVE_FILTER_LZIP},
     {"tar.lzo",  ARCHIVE_FORMAT_TAR, ARCHIVE_FILTER_LZOP},
-    {"tar.br",   ARCHIVE_FORMAT_TAR, ARCHIVE_FILTER_PROGRAM},  // Use program for brotli
+#if defined(ARCHIVE_FILTER_BROTLI)
+    {"tar.br",   ARCHIVE_FORMAT_TAR, ARCHIVE_FILTER_BROTLI},
+#endif
     
     // Compresión simple (single file)
     {"gz",       ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_GZIP},
@@ -47,7 +49,9 @@ static const PackFormat formats[] = {
     {"zstd",     ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_ZSTD},
     {"lz4",      ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_LZ4},
     {"lzo",      ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_LZOP},
-    {"br",       ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_PROGRAM},  // Use program for brotli
+#if defined(ARCHIVE_FILTER_BROTLI)
+    {"br",       ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_BROTLI},
+#endif
     
     // Formatos de archivo
     {"zip",      ARCHIVE_FORMAT_ZIP,   0},

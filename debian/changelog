@@ -1,0 +1,5 @@
+pack-extract (1.5.2-1) UNRELEASED; urgency=medium
+
+  * Initial Debian packaging (pack + extract, libarchive).
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Tue, 07 Jul 2026 12:00:00 -0300

@@ -1,77 +1,65 @@
 #!/usr/bin/env bash
+# Install pack/extract C binaries (see Makefile). Bash wrappers: pack.sh / extract.sh (legacy).
+set -euo pipefail
 
-set -e
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
 
-echo "Installing pack and extract utilities..."
+need_libarchive() {
+    if pkg-config --exists libarchive 2>/dev/null; then
+        return 0
+    fi
+    if [ -f /usr/include/archive.h ]; then
+        return 0
+    fi
+    echo "Error: libarchive development headers missing." >&2
+    echo "  Debian/Ubuntu: sudo apt-get install -y libarchive-dev" >&2
+    exit 1
+}
 
-if [[ ! -f "extract.sh" ]] || [[ ! -f "pack.sh" ]]; then
-    echo "Error: extract.sh and pack.sh must be in the current directory"
+if ! command -v make >/dev/null || ! command -v gcc >/dev/null; then
+    echo "Error: make and gcc are required to build the C binaries." >&2
     exit 1
 fi
 
-if [[ $EUID -ne 0 ]]; then
+need_libarchive
 
-	mkdir -p "$HOME/.local/bin"
-	mkdir -p "$HOME/.local/share/man/man1"
-	mkdir -p "$HOME/.local/share/bash-completion/completions"
-	mkdir -p "$HOME/.local/share/zsh/site-functions"
-
-	echo "Installing extract to $HOME/.local/bin/extract..."
-	cp extract.sh "$HOME/.local/bin/extract"
-	chmod 755 "$HOME/.local/bin/extract"
-
-	echo "Installing pack to $HOME/.local/bin/pack..."
-	cp pack.sh "$HOME/.local/bin/pack"
-	chmod 755 "$HOME/.local/bin/pack"
-
-	if [[ -d "man" ]]; then
-		echo "Installing man pages to $HOME/.local/share/man/man1/..."
-		cp man/extract.1 "$HOME/.local/share/man/man1/extract.1"
-		cp man/pack.1 "$HOME/.local/share/man/man1/pack.1"
-	fi
-
-	if [[ -d "completions" ]]; then
-		echo "Installing bash completions..."
-		cp completions/bash/extract "$HOME/.local/share/bash-completion/completions/extract"
-		cp completions/bash/pack "$HOME/.local/share/bash-completion/completions/pack"
-
-		echo "Installing zsh completions..."
-		cp completions/zsh/_extract "$HOME/.local/share/zsh/site-functions/_extract"
-		cp completions/zsh/_pack "$HOME/.local/share/zsh/site-functions/_pack"
-	fi
-
-	echo "Installation completed successfully"
-	echo "You can now use 'extract' and 'pack' commands from anywhere"
+echo "Building pack and extract (C)..."
+if [ "${EUID:-$(id -u)}" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+    # Never leave root-owned artifacts in build/ (breaks dpkg-buildpackage as user).
+    sudo -u "$SUDO_USER" make clean all
+else
+    make clean all
 fi
 
-if [[ $EUID -eq 0 ]]; then
-
-	echo "Installing extract to /usr/bin/extract..."
-	cp extract.sh /usr/bin/extract
-	chmod 755 /usr/bin/extract
-
-	echo "Installing pack to /usr/bin/pack..."
-	cp pack.sh /usr/bin/pack
-	chmod 755 /usr/bin/pack
-
-	if [[ -d "man" ]]; then
-		echo "Installing man pages to /usr/share/man/man1/..."
-		cp man/extract.1 /usr/share/man/man1/extract.1
-		cp man/pack.1 /usr/share/man/man1/pack.1
-	fi
-
-	if [[ -d "completions" ]]; then
-		echo "Installing bash completions..."
-		cp completions/bash/extract /usr/share/bash-completion/completions/extract
-		cp completions/bash/pack /usr/share/bash-completion/completions/pack
-
-		if [[ -d "/usr/share/zsh/site-functions" ]]; then
-			echo "Installing zsh completions..."
-			cp completions/zsh/_extract /usr/share/zsh/site-functions/_extract
-			cp completions/zsh/_pack /usr/share/zsh/site-functions/_pack
-		fi
-	fi
-
-	echo "Installation completed successfully"
-	echo "You can now use 'extract' and 'pack' commands from anywhere"
+if [ ! -x build/pack ] || [ ! -x build/extract ]; then
+    echo "Error: build failed (expected build/pack and build/extract)." >&2
+    exit 1
 fi
+
+file build/pack | grep -q 'ELF' || {
+    echo "Error: build/pack is not an ELF binary." >&2
+    exit 1
+}
+
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    PREFIX="${PREFIX:-/usr}"
+    echo "Installing C binaries to ${PREFIX}/bin ..."
+    make PREFIX="$PREFIX" install
+else
+    echo "Installing C binaries to \$HOME/.local/bin ..."
+    make PREFIX="$HOME/.local" install
+    if ! echo ":$PATH:" | grep -q ":$HOME/.local/bin:"; then
+        echo ""
+        echo "Tip: add ~/.local/bin to PATH if not already:"
+        echo '  export PATH="$HOME/.local/bin:$PATH"'
+    fi
+fi
+
+echo ""
+echo "Installed:"
+command -v pack
+command -v extract
+file "$(command -v pack)" "$(command -v extract)"
+pack --version | head -1
+extract --version | head -1

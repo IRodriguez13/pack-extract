@@ -99,22 +99,12 @@ Successful extraction.
 An error occurred (file not found, unsupported format, extraction failure).
 .SH DEPENDENCIES
 .B extract
-relies on standard system utilities. Not all need to be installed;
-only those for the formats you use:
-.BR tar (1),
-.BR gunzip (1),
-.BR unxz (1),
-.BR bunzip2 (1),
-.BR zstd (1),
-.BR lz4 (1),
-.BR lzip (1),
-.BR lzop (1),
-.BR brotli (1),
-.BR unzip (1),
-.BR 7z (1),
-.BR unrar (1),
-.BR cpio (1),
-.BR file (1).
+uses
+.BR libarchive (3)
+to detect and unpack supported formats. Build requires
+.BR libarchive-dev
+and
+.BR pkg-config (1).
 .SH SEE ALSO
 .BR pack (1),
 .BR tar (1),

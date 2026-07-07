@@ -108,21 +108,35 @@ The generated archive is created in the current directory with the source name.
 
 ## Installation
 
-Run the install script:
-```bash
-# User install (~/.local/bin)
-./install.sh
+### C binaries (recommended)
 
-# System-wide install
-sudo ./install.sh
+Build dependency: **libarchive** (`libarchive-dev` on Debian/Ubuntu).
+
+```bash
+sudo apt-get install -y libarchive-dev build-essential
+./install.sh              # ~/.local/bin when non-root
+sudo ./install.sh         # /usr/bin when root (override: sudo PREFIX=/usr/local ./install.sh)
 ```
 
-Or manually:
+Or via Makefile directly:
+
 ```bash
-chmod +x extract.sh pack.sh
-sudo cp extract.sh /usr/local/bin/extract
-sudo cp pack.sh /usr/local/bin/pack
+make clean all check
+sudo make PREFIX=/usr install
 ```
+
+Packaging checklist (Debian/Fedora): [`docs/PACKAGING.md`](docs/PACKAGING.md).
+
+Verify you have ELF binaries, not bash wrappers:
+
+```bash
+file "$(command -v extract)"
+extract --version
+```
+
+### Legacy bash wrappers
+
+`pack.sh` and `extract.sh` remain in the repo for reference; `install.sh` no longer copies them to `/usr/bin`.
 
 Man pages are installed automatically by `install.sh`. To read them:
 ```bash
@@ -132,8 +146,11 @@ man pack
 
 ## Requirements
 
-Both utilities are simple scripts that depend on standard system utilities.
-Only the tools for the formats you use need to be installed:
+**C build:** `gcc`, `make`, `libarchive-dev` (pkg-config libarchive).
+
+**Runtime:** libarchive (usually `libarchive13` on Debian/Ubuntu). External tools may still be invoked for some formats via libarchive filters.
+
+Legacy bash scripts additionally depend on standard system utilities:
 
 - `tar`
 - `gzip` / `gunzip`
