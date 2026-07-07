@@ -13,7 +13,9 @@ endif
 
 CFLAGS ?= -O2 -Wall -Wextra -pedantic
 CFLAGS += -Iinclude -DPACK_EXTRACT_VERSION=\"$(VERSION)\" $(ARCHIVE_CFLAGS)
-LDFLAGS ?= $(ARCHIVE_LIBS)
+# dpkg-buildpackage sets LDFLAGS (hardening/LTO); libraries go in LDLIBS.
+LDFLAGS ?=
+LDLIBS ?= $(ARCHIVE_LIBS)
 
 BUILD_DIR = build
 PACK = $(BUILD_DIR)/pack
@@ -59,10 +61,10 @@ pack-bin: $(PACK)
 extract-bin: $(EXTRACT)
 
 $(PACK): $(PACK_SRC) include/version.h | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) $(LDLIBS)
 
 $(EXTRACT): $(EXTRACT_SRC) include/version.h | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) $(LDLIBS)
 
 clean:
 	@rm -rf $(BUILD_DIR) 2>/dev/null || { \
