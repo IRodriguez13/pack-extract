@@ -47,7 +47,7 @@ ZSH_COMPLETIONS = completions/zsh/_extract completions/zsh/_pack
 DIST_NAME = pack-extract-$(VERSION)
 DIST_DIR = dist/$(DIST_NAME)
 DIST_TAR = dist/$(DIST_NAME).tar.gz
-PACK_FILES = VERSION COPYING Makefile README.md docs/PACKAGING.md pack.c extract.c include man completions install.sh scripts/verify-c-install.sh tests/smoke-test.sh .gitignore
+PACK_FILES = VERSION COPYING Makefile README.md docs/PACKAGING.md pack.c extract.c include man completions debian install.sh scripts/verify-c-install.sh tests/smoke-test.sh .gitignore
 
 .PHONY: all pack extract clean install uninstall check help dist-pack dist-extract release
 

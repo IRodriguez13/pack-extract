@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-dev build-essential
+
+      - name: Build and smoke test
+        run: make clean all check
+
+  deb-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-dev build-essential debhelper-compat
+
+      - name: Build .deb
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Verify .deb artifacts
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          test -f "../pack-extract_${VERSION}-1_amd64.deb"
+          dpkg-deb -I "../pack-extract_${VERSION}-1_amd64.deb" | grep -q 'Package: pack-extract'

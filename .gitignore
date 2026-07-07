@@ -24,6 +24,16 @@ Thumbs.db
 # Logs
 *.log
 
+# Debian package build artifacts
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/*.substvars
+debian/pack-extract/
+*.buildinfo
+*.changes
+*.ddeb
+
 # Archives created during testing
 /dist/
 *.tar
