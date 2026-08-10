@@ -9,8 +9,8 @@ url="https://github.com/IRodriguez13/pack-extract"
 license=('GPL-3.0-or-later')
 depends=('libarchive')
 makedepends=('gcc' 'make' 'pkgconf')
-source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('SKIP')
+source=("${pkgname}-${pkgver}.tar.gz::${url}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('d48fb54b53f99a11dd348cea99afc0f4fbdef3bdfa64c199ca3a48e8ba3301c6')
 
 build() {
   cd "${pkgname}-${pkgver}"

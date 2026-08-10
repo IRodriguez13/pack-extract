@@ -12,8 +12,8 @@ depends=('libarchive')
 provides=('pack-extract')
 conflicts=('pack-extract')
 options=('!strip')
-source=("${pkgname%-bin}-${pkgver}-linux-amd64.tar.gz::${url}/releases/download/v${pkgver}/pack-extract-${pkgver}-linux-amd64.tar.gz")
-sha256sums=('SKIP')
+source=("pack-extract-${pkgver}-linux-amd64.tar.gz::${url}/releases/download/v${pkgver}/pack-extract-${pkgver}-linux-amd64.tar.gz")
+sha256sums=('563262653286420f5a38211eef420219f02721f6d8618a0c7dbda1177dc59056')
 
 package() {
   cd "pack-extract-${pkgver}-linux-amd64"
