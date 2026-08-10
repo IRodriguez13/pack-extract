@@ -1,4 +1,4 @@
-.TH EXTRACT 1 "July 2026" "pack-extract 1.5.2" "User Commands"
+.TH EXTRACT 1 "August 2026" "pack-extract 1.5.3" "User Commands"
 .SH NAME
 extract \- automatically extract compressed archives
 .SH SYNOPSIS
@@ -12,15 +12,17 @@ extract \- automatically extract compressed archives
 .I archive
 .SH DESCRIPTION
 .B extract
-detects the format of a compressed archive using MIME type detection
-and extracts its contents into the current directory. After extraction,
-it prints the list of newly created files and directories.
+opens
+.I archive
+with
+.BR libarchive (3)
+(all supported formats and filters) and writes members into the current
+directory. After a successful extraction it prints a sorted list of
+extracted paths.
 .PP
-Format detection is automatic via
-.BR file (1)
-so the user does not need to remember tool-specific flags.
-.PP
-This version is rewritten in C for improved performance compared to the original bash implementation.
+Absolute member paths and path components equal to
+.B ..
+are rejected to mitigate zip-slip style traversal.
 .SH OPTIONS
 .TP
 .B \-v, \-\-version
@@ -29,35 +31,19 @@ Display version information and exit.
 .B \-h, \-\-help
 Display help message and exit.
 .SH SUPPORTED FORMATS
-.TS
-l l l.
-Format	MIME type	Tool used
-_
-\&.tar	application/x-tar	tar
-\&.tar.gz, .tgz	application/gzip	tar
-\&.tar.xz, .txz	application/x-xz	tar
-\&.tar.bz2, .tbz2	application/x-bzip2	tar
-\&.tar.zst, .tzst	application/zstd	tar \-\-zstd
-\&.tar.lz4, .tlz4	application/x-lz4	tar + lz4
-\&.tar.lz	application/x-lzip	tar \-\-lzip
-\&.tar.lzo, .tlzo	application/x-lzop	tar + lzop
-\&.tar.br, .tbr	application/x-brotli	tar + brotli
-\&.gz	application/gzip	gunzip
-\&.xz	application/x-xz	unxz
-\&.bz2	application/x-bzip2	bunzip2
-\&.zst	application/zstd	zstd
-\&.lz4	application/x-lz4	lz4
-\&.lzo	application/x-lzop	lzop
-\&.br	application/x-brotli	brotli
-\&.zip	application/zip	unzip
-\&.7z	application/x-7z-compressed	7z
-\&.rar	application/x-rar-compressed	unrar
-\&.cpio	application/x-cpio	cpio
-.TE
+Anything
+.B libarchive
+can read with
+.B archive_read_support_format_all
+and
+.B archive_read_support_filter_all
+on the build host, typically including tar (with gzip, xz, bzip2, zstd,
+lz4, lzip, lzop, brotli when available), zip, 7z, cpio, and common
+single-file compression streams.
 .PP
-For gzip, xz, bzip2, zstd, lz4, lzop, and brotli, the tool distinguishes between
-tar archives (e.g.\& .tar.gz) and plain compressed files (e.g.\& .gz)
-by inspecting the file extension.
+Exact coverage depends on how
+.B libarchive
+was built (optional codecs).
 .SH EXAMPLES
 Extract a gzip-compressed tarball:
 .PP
@@ -82,34 +68,22 @@ Extract a 7z archive:
 $ extract data.7z
 .fi
 .RE
-.PP
-Decompress a single gzip file:
-.PP
-.RS
-.nf
-$ extract notes.txt.gz
-.fi
-.RE
 .SH EXIT STATUS
 .TP
 .B 0
 Successful extraction.
 .TP
 .B 1
-An error occurred (file not found, unsupported format, extraction failure).
+An error occurred (file not found, unsafe path, unsupported or corrupt
+archive, I/O failure).
 .SH DEPENDENCIES
 .B extract
-uses
-.BR libarchive (3)
-to detect and unpack supported formats. Build requires
-.BR libarchive-dev
-and
+links against
+.BR libarchive (3).
+Build requires the libarchive development package and
 .BR pkg-config (1).
 .SH SEE ALSO
 .BR pack (1),
-.BR tar (1),
-.BR gzip (1),
-.BR zip (1),
-.BR 7z (1)
+.BR libarchive (3)
 .SH AUTHORS
 Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>

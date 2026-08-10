@@ -1,3 +1,12 @@
+pack-extract (1.5.3-1) UNRELEASED; urgency=medium
+
+  * extract: shared goto cleanup, EXTRACT_BLOCK_SIZE, zip-slip path checks.
+  * Smoke matrix for tar.gz/xz/bz2/zst, zip, 7z; reject unsafe zip paths.
+  * Docs/man aligned with libarchive; PKGBUILD for AUR; autopkgtest smoke.
+  * Drop legacy pack.sh/extract.sh from the tree (C binaries only).
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Mon, 10 Aug 2026 11:20:00 -0300
+
 pack-extract (1.5.2-1) UNRELEASED; urgency=medium
 
   * Initial Debian packaging (pack + extract, libarchive).

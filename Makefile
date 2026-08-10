@@ -47,9 +47,13 @@ ZSH_COMPLETIONS = completions/zsh/_extract completions/zsh/_pack
 DIST_NAME = pack-extract-$(VERSION)
 DIST_DIR = dist/$(DIST_NAME)
 DIST_TAR = dist/$(DIST_NAME).tar.gz
-PACK_FILES = VERSION COPYING Makefile README.md docs/PACKAGING.md pack.c extract.c include man completions debian install.sh scripts/verify-c-install.sh tests/smoke-test.sh .gitignore
+BIN_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+DIST_BIN_NAME = pack-extract-$(VERSION)-linux-$(BIN_ARCH)
+DIST_BIN_DIR = dist/$(DIST_BIN_NAME)
+DIST_BIN_TAR = dist/$(DIST_BIN_NAME).tar.gz
+PACK_FILES = VERSION COPYING Makefile README.md CONTRIBUTORS.md docs/PACKAGING.md PKGBUILD aur pack.c extract.c include man completions debian install.sh scripts/verify-c-install.sh scripts/install-from-bin-tarball.sh tests/smoke-test.sh .gitignore
 
-.PHONY: all pack extract clean install uninstall check help dist-pack dist-extract release
+.PHONY: all pack extract clean install uninstall check help dist-pack dist-bin dist-extract release
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -113,6 +117,18 @@ dist-pack:
 	@tar -czf $(DIST_TAR) -C dist $(DIST_NAME)
 	@echo "packed $(DIST_TAR)"
 
+# Prebuilt binaries for install-without-compile (GitHub Releases / AUR -bin).
+dist-bin: all
+	@rm -rf $(DIST_BIN_DIR)
+	@mkdir -p $(DIST_BIN_DIR)/bin $(DIST_BIN_DIR)/share/man/man1
+	@cp $(PACK) $(EXTRACT) $(DIST_BIN_DIR)/bin/
+	@cp $(MAN_PAGES) $(DIST_BIN_DIR)/share/man/man1/
+	@cp scripts/install-from-bin-tarball.sh $(DIST_BIN_DIR)/install.sh
+	@chmod +x $(DIST_BIN_DIR)/install.sh $(DIST_BIN_DIR)/bin/*
+	@mkdir -p dist
+	@tar -czf $(DIST_BIN_TAR) -C dist $(DIST_BIN_NAME)
+	@echo "packed $(DIST_BIN_TAR)"
+
 dist-extract:
 	@test -f $(DIST_TAR) || (echo "missing $(DIST_TAR); run make dist-pack first" && exit 1)
 	@rm -rf $(DIST_DIR)
@@ -128,7 +144,8 @@ help:
 	@echo "  check        - Run smoke tests (tests/smoke-test.sh)"
 	@echo "  install      - Install binaries, man pages, and completions (PREFIX=$(PREFIX))"
 	@echo "  uninstall    - Remove installed files"
-	@echo "  dist-pack    - Create dist/$(DIST_NAME).tar.gz"
-	@echo "  dist-extract - Extract release tarball to dist/"
+	@echo "  dist-pack    - Create source dist/$(DIST_NAME).tar.gz"
+	@echo "  dist-bin     - Create prebuilt dist/$(DIST_BIN_NAME).tar.gz"
+	@echo "  dist-extract - Extract source release tarball to dist/"
 	@echo "  release      - Publish GitHub release for current VERSION"
 	@echo "  clean        - Remove $(BUILD_DIR)/"

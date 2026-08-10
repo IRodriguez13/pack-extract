@@ -15,10 +15,14 @@
 #include <archive_entry.h>
 #include "version.h"
 
-void print_help(void) {
+/* libarchive read block size (bytes); matches common examples in archive.h docs */
+#define EXTRACT_BLOCK_SIZE 10240
+
+void print_help(void)
+{
     printf(
         "Usage: extract <archive>\n"
-        "Extracts compressed archives automatically by detecting the format\n"
+        "Extracts compressed archives automatically by detecting the format if supported.\n"
         "\n"
         "Options:\n"
         "  -v, --version    Show version information and exit\n"
@@ -26,7 +30,8 @@ void print_help(void) {
     );
 }
 
-void print_version(void) {
+void print_version(void)
+{
     printf(
         "extract (pack-extract) %s\n"
         "Copyright (C) 2026 Iván Ezequiel Rodriguez\n"
@@ -42,9 +47,44 @@ void print_version(void) {
     );
 }
 
+/* Reject absolute paths and ".." components (zip-slip). */
+static int entry_path_is_safe(const char *pathname)
+{
+    const char *p;
+
+    if (!pathname || pathname[0] == '\0')
+        return 0;
+    if (pathname[0] == '/')
+        return 0;
+
+    for (p = pathname; *p; )
+    {
+        if (p[0] == '.' && p[1] == '.' && (p[2] == '/' || p[2] == '\0'))
+            return 0;
+        while (*p && *p != '/')
+            p++;
+        while (*p == '/')
+            p++;
+    }
+    return 1;
+}
+
+static int cmp_strptr(const void *a, const void *b)
+{
+    return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
 int extract_archive(const char *filename)
 {
-    struct archive *a = archive_read_new();
+    struct archive *a = NULL;
+    struct archive *ext = NULL;
+    char **extracted_files = NULL;
+    size_t extracted_count = 0;
+    struct archive_entry *entry;
+    int r;
+    int status = 1;
+
+    a = archive_read_new();
     if (!a)
     {
         fprintf(stderr, "Error: Failed to create archive reader\n");
@@ -54,152 +94,124 @@ int extract_archive(const char *filename)
     archive_read_support_format_all(a);
     archive_read_support_filter_all(a);
 
-    if (archive_read_open_filename(a, filename, 10240) != ARCHIVE_OK)
+    if (archive_read_open_filename(a, filename, EXTRACT_BLOCK_SIZE) != ARCHIVE_OK)
     {
         fprintf(stderr, "Error: Failed to open archive: %s\n", archive_error_string(a));
-        archive_read_free(a);
-        return 1;
+        goto fail;
     }
 
-    struct archive *ext = archive_write_disk_new();
+    ext = archive_write_disk_new();
     if (!ext)
     {
         fprintf(stderr, "Error: Failed to create disk writer\n");
-        archive_read_free(a);
-        return 1;
+        goto fail;
     }
 
-    archive_write_disk_set_options(ext, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS);
+    archive_write_disk_set_options(ext,
+        ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM |
+        ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS);
     archive_write_disk_set_standard_lookup(ext);
 
-    // List of extracted files
-    char **extracted_files = NULL;
-    size_t extracted_count = 0;
-
-    struct archive_entry *entry;
-    int r;
     while ((r = archive_read_next_header(a, &entry)) == ARCHIVE_OK)
     {
         const char *pathname = archive_entry_pathname(entry);
+        char **new_list;
+        const void *buff;
+        size_t size;
+        la_int64_t offset;
+
+        if (!entry_path_is_safe(pathname))
+        {
+            fprintf(stderr, "Error: Refusing unsafe path in archive: %s\n",
+                    pathname ? pathname : "(null)");
+            goto fail;
+        }
+
         printf("Extracting: %s\n", pathname);
 
-        // Add to list
-        char **new_list = realloc(extracted_files, (extracted_count + 1) * sizeof(char *));
+        new_list = realloc(extracted_files, (extracted_count + 1) * sizeof(char *));
         if (!new_list)
         {
             fprintf(stderr, "Error: Memory allocation failed\n");
-            // Free existing
-            for (size_t i = 0; i < extracted_count; ++i)
-            {
-                free(extracted_files[i]);
-            }
-            free(extracted_files);
-            archive_write_free(ext);
-            archive_read_free(a);
-            return 1;
+            goto fail;
         }
         extracted_files = new_list;
         extracted_files[extracted_count] = strdup(pathname);
         if (!extracted_files[extracted_count])
         {
             fprintf(stderr, "Error: Memory allocation failed\n");
-            // Free
-            for (size_t i = 0; i < extracted_count; ++i)
-            {
-                free(extracted_files[i]);
-            }
-            free(extracted_files);
-            archive_write_free(ext);
-            archive_read_free(a);
-            return 1;
+            goto fail;
         }
         ++extracted_count;
 
         if (archive_write_header(ext, entry) != ARCHIVE_OK)
         {
             fprintf(stderr, "Error: Failed to write header: %s\n", archive_error_string(ext));
-            // Free
-            for (size_t i = 0; i < extracted_count; ++i)
-            {
-                free(extracted_files[i]);
-            }
-            free(extracted_files);
-            archive_write_free(ext);
-            archive_read_free(a);
-            return 1;
+            goto fail;
         }
 
-        const void *buff;
-        size_t size;
-        la_int64_t offset;
         while ((r = archive_read_data_block(a, &buff, &size, &offset)) == ARCHIVE_OK)
         {
             if (archive_write_data_block(ext, buff, size, offset) != ARCHIVE_OK)
             {
                 fprintf(stderr, "Error: Failed to write data: %s\n", archive_error_string(ext));
-                // Free
-                for (size_t i = 0; i < extracted_count; ++i)
-                {
-                    free(extracted_files[i]);
-                }
-                free(extracted_files);
-                archive_write_free(ext);
-                archive_read_free(a);
-                return 1;
+                goto fail;
             }
         }
         if (r != ARCHIVE_EOF)
         {
             fprintf(stderr, "Error: Failed to read data: %s\n", archive_error_string(a));
-            // Free
-            for (size_t i = 0; i < extracted_count; ++i)
-            {
-                free(extracted_files[i]);
-            }
-            free(extracted_files);
-            archive_write_free(ext);
-            archive_read_free(a);
-            return 1;
+            goto fail;
         }
     }
 
     if (r != ARCHIVE_EOF)
     {
         fprintf(stderr, "Error: Failed to read archive: %s\n", archive_error_string(a));
-        // Free
-        for (size_t i = 0; i < extracted_count; ++i)
-        {
-            free(extracted_files[i]);
-        }
-        free(extracted_files);
-        archive_write_free(ext);
-        archive_read_free(a);
-        return 1;
+        goto fail;
     }
 
-    archive_write_free(ext);
-    archive_read_free(a);
-
-    // Sort and print extracted files
     if (extracted_count > 0)
     {
-        // Sort
-        qsort(extracted_files, extracted_count, sizeof(char *), (int (*)(const void *, const void *))strcmp);
+        qsort(extracted_files, extracted_count, sizeof(char *), cmp_strptr);
 
         printf("\nArchive extracted successfully.\nExtract result:\n");
         for (size_t i = 0; i < extracted_count; ++i)
         {
             printf("%s\n", extracted_files[i]);
             free(extracted_files[i]);
+            extracted_files[i] = NULL;
         }
         free(extracted_files);
+        extracted_files = NULL;
+        extracted_count = 0;
     }
     else
     {
         printf("Archive extracted successfully\n");
     }
 
-    return 0;
+    status = 0;
+
+fail:
+    if (extracted_files)
+    {
+        for (size_t i = 0; i < extracted_count; ++i)
+            free(extracted_files[i]);
+        free(extracted_files);
+        extracted_files = NULL;
+    }
+    if (ext)
+    {
+        archive_write_free(ext);
+        ext = NULL;
+    }
+    if (a)
+    {
+        archive_read_free(a);
+        a = NULL;
+    }
+    return status;
 }
 
 int main(int argc, char *argv[])
@@ -222,7 +234,6 @@ int main(int argc, char *argv[])
 
     const char *filename = argv[1];
 
-    // Check if file exists
     struct stat st;
     if (stat(filename, &st) != 0 || !S_ISREG(st.st_mode))
     {

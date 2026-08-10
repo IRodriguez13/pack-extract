@@ -25,6 +25,9 @@ jobs:
       - name: Build source tarball
         run: make dist-pack
 
+      - name: Build prebuilt binary tarball
+        run: make dist-bin
+
       - name: Build .deb
         run: dpkg-buildpackage -us -uc -b
 

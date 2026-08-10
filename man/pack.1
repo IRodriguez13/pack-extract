@@ -1,4 +1,4 @@
-.TH PACK 1 "July 2026" "pack-extract 1.5.2" "User Commands"
+.TH PACK 1 "August 2026" "pack-extract 1.5.3" "User Commands"
 .SH NAME
 pack \- create compressed archives in the specified format
 .SH SYNOPSIS
@@ -15,13 +15,15 @@ pack \- create compressed archives in the specified format
 creates an archive or compressed file from the given
 .I source
 (file or directory) in the specified
-.IR format .
-The output is placed in the current directory, named after the source
-with the appropriate extension appended.
+.IR format
+using
+.BR libarchive (3).
+The output is placed in the current directory, named
+.IB source . format
+(for example
+.BR report.txt.gz ).
 .PP
 This avoids having to remember tool-specific flags for each format.
-.PP
-This version is rewritten in C for improved performance compared to the original bash implementation.
 .SH OPTIONS
 .TP
 .B \-v, \-\-version
@@ -33,36 +35,41 @@ Display help message and exit.
 .SS Archive formats (files and directories)
 .TS
 l l l.
-Format	Extension	Tool used
+Format	Extension	Backend
 _
-tar	.tar	tar
-tar.gz	.tar.gz	tar + gzip
-tar.xz	.tar.xz	tar + xz
-tar.bz2	.tar.bz2	tar + bzip2
-tar.zst	.tar.zst	tar \-\-zstd
-tar.lz4	.tar.lz4	tar + lz4
-tar.lz	.tar.lz	tar \-\-lzip
-tar.lzo	.tar.lzo	tar + lzop
-tar.br	.tar.br	tar + brotli
-zip	.zip	zip
-7z	.7z	7z
+tar	.tar	libarchive
+tar.gz	.tar.gz	libarchive
+tar.xz	.tar.xz	libarchive
+tar.bz2	.tar.bz2	libarchive
+tar.zst	.tar.zst	libarchive
+tar.lz4	.tar.lz4	libarchive
+tar.lz	.tar.lz	libarchive
+tar.lzo	.tar.lzo	libarchive
+tar.br	.tar.br	libarchive (optional)
+zip	.zip	libarchive
+7z	.7z	libarchive
 .TE
 .SS Single-file compression (files only)
 .TS
 l l l.
-Format	Extension	Tool used
+Format	Extension	Backend
 _
-gz	.gz	gzip
-bz2	.bz2	bzip2
-xz	.xz	xz
-zstd	.zst	zstd
-lz4	.lz4	lz4
-lzo	.lzo	lzop
-br	.br	brotli
+gz	.gz	libarchive
+bz2	.bz2	libarchive
+xz	.xz	libarchive
+zstd	.zstd	libarchive
+lz4	.lz4	libarchive
+lzo	.lzo	libarchive
+br	.br	libarchive (optional)
 .TE
 .PP
-Single-file formats (gz, bz2, xz, zstd, lz4, lzo, br) refuse to operate on
-directories. Use an archive format instead.
+Single-file formats refuse directories; use an archive format instead.
+.B tar.br
+and
+.B br
+are compiled only when
+.B ARCHIVE_FILTER_BROTLI
+is available in the installed libarchive headers.
 .SH EXAMPLES
 Create a gzip-compressed tarball of a directory:
 .PP
@@ -77,22 +84,6 @@ Create a zip archive:
 .RS
 .nf
 $ pack zip src/
-.fi
-.RE
-.PP
-Create a 7z archive:
-.PP
-.RS
-.nf
-$ pack 7z backups/
-.fi
-.RE
-.PP
-Create a zstd-compressed tarball:
-.PP
-.RS
-.nf
-$ pack tar.zst dataset/
 .fi
 .RE
 .PP
@@ -113,19 +104,12 @@ An error occurred (source not found, unsupported format, directory with
 single-file format, creation failure).
 .SH DEPENDENCIES
 .B pack
-and
-.B extract
-use
-.BR libarchive (3)
-for archive I/O. Build requires
-.BR libarchive-dev
-and
+links against
+.BR libarchive (3).
+Build requires the libarchive development package and
 .BR pkg-config (1).
 .SH SEE ALSO
 .BR extract (1),
-.BR tar (1),
-.BR gzip (1),
-.BR zip (1),
-.BR 7z (1)
+.BR libarchive (3)
 .SH AUTHORS
 Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>

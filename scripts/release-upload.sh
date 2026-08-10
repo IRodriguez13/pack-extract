@@ -8,6 +8,7 @@ cd "$ROOT"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 TAG="v${VERSION}"
 TAR="dist/pack-extract-${VERSION}.tar.gz"
+BIN_TAR="$(ls -1 dist/pack-extract-${VERSION}-linux-*.tar.gz 2>/dev/null | head -1 || true)"
 GH="${GH:-gh}"
 DEB="$(ls -1 ../*pack-extract_${VERSION}-*_amd64.deb 2>/dev/null | head -1 || true)"
 
@@ -22,18 +23,23 @@ if [ ! -f "$TAR" ]; then
 fi
 
 UPLOAD_ARGS=("$TAR")
+if [ -n "$BIN_TAR" ] && [ -f "$BIN_TAR" ]; then
+    UPLOAD_ARGS+=("$BIN_TAR")
+else
+    echo "warning: no prebuilt binary tarball; run make dist-bin" >&2
+fi
 if [ -n "$DEB" ] && [ -f "$DEB" ]; then
     UPLOAD_ARGS+=("$DEB")
 else
-    echo "warning: no .deb found; uploading tarball only" >&2
+    echo "warning: no .deb found; uploading without .deb" >&2
 fi
 
 NOTES="$(cat <<EOF
 ## pack-extract ${VERSION}
 
-Utilidades \`pack\` y \`extract\` en C (libarchive) para empaquetar y extraer archivos sin recordar flags por formato.
+CLI \`pack\` / \`extract\` in C (libarchive). No need to remember per-format flags.
 
-### Instalación desde .deb (Ubuntu/Debian amd64)
+### Install without compiling (Debian / Ubuntu amd64)
 
 \`\`\`bash
 wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-extract_${VERSION}-1_amd64.deb
@@ -41,18 +47,32 @@ sudo apt install ./pack-extract_${VERSION}-1_amd64.deb
 pack --version && extract --version
 \`\`\`
 
-Si faltan dependencias: \`sudo apt-get install -f\`. Runtime: \`libarchive\`.
+Runtime dependency: \`libarchive\` (pulled in by apt).
 
-Reinstalar o actualizar **no requiere desinstalar** antes: el paquete reemplaza \`/usr/bin/pack\` y \`/usr/bin/extract\`.
+### Install without compiling (generic Linux amd64 tarball)
 
-### Instalación desde fuente
+\`\`\`bash
+wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-extract-${VERSION}-linux-amd64.tar.gz
+tar -xzf pack-extract-${VERSION}-linux-amd64.tar.gz
+cd pack-extract-${VERSION}-linux-amd64
+./install.sh          # ~/.local/bin
+# sudo ./install.sh   # /usr
+\`\`\`
+
+Needs \`libarchive\` installed on the system (\`libarchive13\` / \`libarchive\` package).
+
+### Arch (AUR)
+
+- \`pack-extract-bin\` — prebuilt (no compile); see \`aur/pack-extract-bin/PKGBUILD\` in the repo
+- \`pack-extract\` — build from source (\`PKGBUILD\` at repo root)
+
+### From source
 
 \`\`\`bash
 tar -xzf pack-extract-${VERSION}.tar.gz
 cd pack-extract-${VERSION}
-sudo apt-get install -y libarchive-dev build-essential
-make
-sudo make install PREFIX=/usr
+sudo apt-get install -y libarchive-dev build-essential   # or pacman -S libarchive base-devel
+make && sudo make install PREFIX=/usr
 \`\`\`
 EOF
 )"

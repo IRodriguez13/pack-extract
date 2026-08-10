@@ -1,0 +1,3 @@
+Tests: smoke
+Depends: @, build-essential, libarchive-dev, pkg-config, file, python3
+Restrictions: allow-stderr

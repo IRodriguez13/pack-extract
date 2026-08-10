@@ -23,6 +23,9 @@ make clean all check
 echo "Building source tarball..."
 make dist-pack
 
+echo "Building prebuilt binary tarball..."
+make dist-bin
+
 if command -v dpkg-buildpackage >/dev/null 2>&1; then
     if dpkg -s debhelper >/dev/null 2>&1; then
         echo "Building .deb..."

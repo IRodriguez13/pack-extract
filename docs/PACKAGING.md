@@ -1,58 +1,80 @@
 # pack-extract — packaging checklist
 
-> **Última verificación:** 2026-07-07  
-> **Fuente de verdad:** `Makefile`, `debian/`, `tests/smoke-test.sh`, `pack.c`, `extract.c`
+> **Última verificación:** 2026-08-10  
+> **Fuente de verdad:** `Makefile`, `debian/`, `PKGBUILD`, `tests/smoke-test.sh`, `pack.c`, `extract.c`
 
-## Estado para paquetería oficial
+## Estado para paquetería
 
 | Requisito | Estado | Notas |
 |-----------|--------|-------|
-| Licencia GPLv3+ (`COPYING`, `debian/copyright`) | OK | Añadido en esta revisión |
-| Binarios C (no bash en `/usr/bin`) | OK | `make` + `sudo make install PREFIX=/usr` o `.deb` |
-| `pkg-config libarchive` en build | OK | Makefile |
-| Man pages `pack(1)` / `extract(1)` | OK | Actualizar sección DEPENDENCIES → libarchive |
-| Shell completions bash/zsh | OK | `debian/*.bash-completion` |
-| `make check` (smoke) | OK | `tests/smoke-test.sh` |
-| Skeleton Debian (`debian/`) | OK | `dpkg-buildpackage -us -uc` tras `debhelper` |
-| CI (GitHub Actions) | OK | `.github/workflows/ci.yml` — `make check` + `dpkg-buildpackage` |
-| ITP / RFS Debian | Falta | humano: nombre no colisiona con `extract` de otros paquetes |
-| Paridad bash vs C (formatos) | Parcial | ver abajo |
+| Licencia GPLv3+ (`COPYING`, `debian/copyright`) | OK | |
+| Binarios C (libarchive) | OK | `make` / `.deb` / `PKGBUILD` |
+| `pkg-config libarchive` | OK | Makefile |
+| Man pages `pack(1)` / `extract(1)` | OK | Backend = libarchive |
+| Shell completions bash/zsh | OK | |
+| `make check` (smoke + zip-slip) | OK | `tests/smoke-test.sh` |
+| Skeleton Debian (`debian/`) | OK | + `debian/tests/` autopkgtest |
+| CI (GitHub Actions) | OK | `make check` + `dpkg-buildpackage` |
+| AUR `PKGBUILD` | OK | en raíz; publicar en AUR es paso humano |
+| ITP / RFS Debian oficial | Falta | humano; ver conflicto de nombre abajo |
+| Legacy `pack.sh` / `extract.sh` | Eliminados | solo C en el árbol |
 
 ## Build / verificación local
 
 ```bash
 sudo apt-get install -y libarchive-dev build-essential debhelper-compat
 
-cd ~/Escritorio/pack-extract
+cd /path/to/pack-extract
 make clean all
 make check
-./scripts/verify-c-install.sh   # tras sudo ./install.sh
 
 # Paquete .deb de prueba
 dpkg-buildpackage -us -uc -b
 ```
 
+## AUR
+
+| Paquete | Ruta | Compila |
+|---------|------|---------|
+| `pack-extract` | `PKGBUILD` (raíz) | Sí (fuente) |
+| `pack-extract-bin` | `aur/pack-extract-bin/PKGBUILD` | No (tarball `*-linux-amd64.tar.gz` del release) |
+
+```bash
+# Tras publicar el release v1.5.3, fijar sha256sums (dejar de usar SKIP):
+cd aur/pack-extract-bin
+# bajar el asset, sha256sum, editar PKGBUILD, luego:
+makepkg --printsrcinfo > .SRCINFO
+makepkg -si
+namcap PKGBUILD pack-extract-bin-*.pkg.tar.zst
+```
+
+Publicación en AUR (humano): cuenta en https://aur.archlinux.org/ + SSH key para `aur@aur.archlinux.org`, luego:
+
+```bash
+git clone ssh://aur@aur.archlinux.org/pack-extract-bin.git
+# copiar PKGBUILD + .SRCINFO, commit, git push
+```
+
+Misma idea para `pack-extract` (fuente) si se publica el paquete que compila.
+
 ## Dependencias runtime
 
-- **Obligatoria:** `libarchive` (p. ej. `libarchive13t64` en Ubuntu 24.04).
-- **No** requiere `tar`, `zip`, `7z` en PATH para la versión C (libarchive hace el I/O).
+- **Obligatoria:** `libarchive`.
+- No se requieren `tar`/`zip`/`7z` en PATH para la versión C.
 
-## Gaps conocidos (P1 antes de upload)
+## Nombre del binario `extract`
 
-1. **`tar.br` / `br`:** en `pack.c` usaban `ARCHIVE_FILTER_PROGRAM` sin configurar programa; con libarchive ≥ 3.7 usar `ARCHIVE_FILTER_BROTLI` si está definido.
-2. **Man pages:** tabla «Tool used» describe wrappers bash; la versión C debe decir **libarchive**.
-3. **`dist-pack` tarball:** incluye `COPYING` y `debian/`.
-4. **`pack.sh` / `extract.sh`:** mantener como referencia/legacy en repo; no instalar en `$PATH` (solo C).
-5. **Autopkgtest:** opcional `debian/tests/smoke` invocando `make check`.
-6. **Conflicto de nombres:** el binario `extract` es genérico; en Debian valorar `Provides`/`Conflicts` o renombrar a `pack-extract` / `px-extract` si el mantenedor lo exige.
+Se **mantiene** `extract` y `pack` por estabilidad CLI. En Debian oficial puede hacer falta `Conflicts`/`Provides` o renombrar si otro paquete reclama el nombre; documentar en ITP.
+
+## Gaps restantes (no bloquean AUR / .deb en Releases)
+
+1. Actualizar `sha256sums` del `PKGBUILD` al publicar el tag (ahora `SKIP` solo para desarrollo).
+2. Fedora `.spec` (opcional).
+3. Flags UX (`-C`, `-l`, `-q`) — P1 producto, fuera de este cierre de packaging.
 
 ## Publicación upstream (GitHub)
 
 ```bash
 make dist-pack    # tarball fuente
-make release      # gh release + asset (requiere gh auth)
+make release      # gh release + assets (requiere gh auth)
 ```
-
-## Fedora / RPM
-
-Falta `.spec`; dependencias: `BuildRequires: libarchive-devel`, `%files` con `pack` y `extract`.
