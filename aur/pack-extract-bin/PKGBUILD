@@ -13,7 +13,7 @@ provides=('pack-extract')
 conflicts=('pack-extract')
 options=('!strip')
 source=("pack-extract-${pkgver}-linux-amd64.tar.gz::${url}/releases/download/v${pkgver}/pack-extract-${pkgver}-linux-amd64.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('72d6e6a3637c1b8a7e132b1d5a12ca4a785bb6cf0788f9a57eaff5c8cd2b6728')
 
 package() {
   cd "pack-extract-${pkgver}-linux-amd64"

@@ -10,7 +10,7 @@ license=('GPL-3.0-or-later')
 depends=('libarchive')
 makedepends=('gcc' 'make' 'pkgconf')
 source=("${pkgname}-${pkgver}.tar.gz::${url}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('7be990d8c7016fc8fb8bbfe10ce38f26f587fb90644bc1308e100d7232cf565c')
 
 build() {
   cd "${pkgname}-${pkgver}"
