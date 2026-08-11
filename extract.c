@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <archive.h>
 #include <archive_entry.h>
@@ -23,6 +25,7 @@ void print_help(void)
     printf(
         "Usage: extract <archive>\n"
         "Extracts compressed archives automatically by detecting the format if supported.\n"
+        "If a path already exists, asks whether to overwrite (Ctrl+C cancels).\n"
         "\n"
         "Options:\n"
         "  -v, --version    Show version information and exit\n"
@@ -72,6 +75,68 @@ static int entry_path_is_safe(const char *pathname)
 static int cmp_strptr(const void *a, const void *b)
 {
     return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+/*
+ * Ask whether to overwrite an existing path.
+ * Returns 1 = overwrite, 0 = skip, -1 = cancel / non-interactive conflict.
+ * Ctrl+C delivers SIGINT (default: abort process). EOF / empty → skip.
+ */
+static int ask_overwrite(const char *pathname)
+{
+    char line[64];
+
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+    {
+        fprintf(stderr,
+                "Error: '%s' already exists (non-interactive; refusing overwrite)\n",
+                pathname);
+        return -1;
+    }
+
+    for (;;)
+    {
+        fprintf(stderr, "File exists: %s\nOverwrite / replace? [y/N] ", pathname);
+        fflush(stderr);
+
+        if (!fgets(line, sizeof(line), stdin))
+        {
+            fprintf(stderr, "\nCancelled.\n");
+            return -1;
+        }
+
+        char *p = line;
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        if (*p == '\0')
+            return 0;
+
+        char c = (char)tolower((unsigned char)*p);
+        if (c == 'y')
+            return 1;
+        if (c == 'n')
+            return 0;
+
+        fprintf(stderr, "Please answer y or n (Ctrl+C to cancel).\n");
+    }
+}
+
+/* Existing directory + directory entry: merge without prompting. */
+static int is_existing_dir_merge(const char *pathname, struct archive_entry *entry)
+{
+    struct stat st;
+
+    if (lstat(pathname, &st) != 0)
+        return 0;
+    if (!S_ISDIR(st.st_mode))
+        return 0;
+    return archive_entry_filetype(entry) == AE_IFDIR;
+}
+
+static int path_exists(const char *pathname)
+{
+    struct stat st;
+    return lstat(pathname, &st) == 0;
 }
 
 int extract_archive(const char *filename)
@@ -125,6 +190,25 @@ int extract_archive(const char *filename)
             fprintf(stderr, "Error: Refusing unsafe path in archive: %s\n",
                     pathname ? pathname : "(null)");
             goto fail;
+        }
+
+        if (path_exists(pathname) && !is_existing_dir_merge(pathname, entry))
+        {
+            int overwrite = ask_overwrite(pathname);
+
+            if (overwrite < 0)
+                goto fail;
+            if (overwrite == 0)
+            {
+                printf("Skipping: %s\n", pathname);
+                if (archive_read_data_skip(a) != ARCHIVE_OK)
+                {
+                    fprintf(stderr, "Error: Failed to skip entry: %s\n",
+                            archive_error_string(a));
+                    goto fail;
+                }
+                continue;
+            }
         }
 
         printf("Extracting: %s\n", pathname);

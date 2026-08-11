@@ -40,7 +40,7 @@ dpkg-buildpackage -us -uc -b
 | `pack-extract-bin` | `aur/pack-extract-bin/PKGBUILD` | No (tarball `*-linux-amd64.tar.gz` del release) |
 
 ```bash
-# Tras publicar el release v1.5.3, fijar sha256sums (dejar de usar SKIP):
+# Tras publicar el release v1.5.4, fijar sha256sums (dejar de usar SKIP):
 cd aur/pack-extract-bin
 # bajar el asset, sha256sum, editar PKGBUILD, luego:
 makepkg --printsrcinfo > .SRCINFO

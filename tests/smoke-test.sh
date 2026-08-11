@@ -65,4 +65,19 @@ echo "  OK zip-slip .. rejected"
 "$PACK" --version | grep -q pack-extract
 "$EXTRACT" --version | grep -q pack-extract
 
+# overwrite prompt: non-tty must refuse when target exists
+echo "overwrite-guard..."
+echo "original" > sample.txt
+"$PACK" tar.gz sample.txt
+echo "changed" > sample.txt
+if "$EXTRACT" sample.txt.tar.gz >/dev/null 2>&1; then
+    echo "FAIL: extract overwrote without tty prompt"
+    exit 1
+fi
+grep -q '^changed$' sample.txt
+echo "  OK non-tty refuse overwrite"
+
+# overwrite with explicit y on a fake tty is hard in CI; skip + n path via yes pipe still non-tty.
+# Documented behaviour: conflict on pipe → error (covered above).
+
 echo "smoke: OK"

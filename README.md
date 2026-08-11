@@ -39,7 +39,7 @@ Archives and compressed streams that libarchive can read, including:
 | single-file | `.gz`, `.xz`, `.bz2`, `.zst`, `.lz4`, `.lzo`, `.br` |
 | archive | `.zip`, `.7z`, and others supported by the linked libarchive |
 
-Content is extracted to the current directory. Paths that are absolute or contain `..` are rejected (zip-slip).
+Content is extracted to the current directory. Paths that are absolute or contain `..` are rejected (zip-slip). If a path already exists, `extract` asks to overwrite (`y`/`N`); Ctrl+C cancels. Non-interactive runs refuse overwrite on conflict.
 
 ## pack
 
@@ -101,7 +101,7 @@ Prefer a **prebuilt** package so you do not need a compiler.
 ### Debian / Ubuntu (`.deb`, no compile)
 
 ```bash
-VER=1.5.3
+VER=1.5.4
 wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-extract_${VER}-1_amd64.deb"
 sudo apt install "./pack-extract_${VER}-1_amd64.deb"
 pack --version && extract --version
@@ -110,7 +110,7 @@ pack --version && extract --version
 ### Generic Linux (binary tarball, no compile)
 
 ```bash
-VER=1.5.3
+VER=1.5.4
 wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-extract-${VER}-linux-amd64.tar.gz"
 tar -xzf "pack-extract-${VER}-linux-amd64.tar.gz"
 cd "pack-extract-${VER}-linux-amd64"

@@ -1,4 +1,4 @@
-.TH EXTRACT 1 "August 2026" "pack-extract 1.5.3" "User Commands"
+.TH EXTRACT 1 "August 2026" "pack-extract 1.5.4" "User Commands"
 .SH NAME
 extract \- automatically extract compressed archives
 .SH SYNOPSIS
@@ -23,6 +23,18 @@ extracted paths.
 Absolute member paths and path components equal to
 .B ..
 are rejected to mitigate zip-slip style traversal.
+.PP
+If a member path already exists in the current directory,
+.B extract
+asks whether to overwrite or replace it
+.RB ( y / N ).
+Answer
+.B n
+(or Enter) to skip that member.
+.B Ctrl+C
+cancels the whole extraction.
+Existing directories that match a directory member are merged without prompting.
+In non-interactive mode (stdin/stdout not a tty), a conflict aborts with an error.
 .SH OPTIONS
 .TP
 .B \-v, \-\-version
