@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Iván Ezequiel Rodriguez
  * License: GPLv3+
  *
- * Usage: extract <archive>
+ * Usage: extract [-C dir] [-f|-n|-i] <archive>
  * Extracts compressed archives automatically by detecting the format
  */
 
@@ -12,6 +12,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <archive.h>
 #include <archive_entry.h>
@@ -20,20 +21,34 @@
 /* libarchive read block size (bytes); matches common examples in archive.h docs */
 #define EXTRACT_BLOCK_SIZE 10240
 
-void print_help(void)
+typedef enum
+{
+    OVERWRITE_DEFAULT = 0, /* TTY: ask; non-TTY: refuse */
+    OVERWRITE_FORCE,
+    OVERWRITE_NOCLOBBER,
+    OVERWRITE_INTERACTIVE
+} OverwriteMode;
+
+static void print_help(void)
 {
     printf(
-        "Usage: extract <archive>\n"
+        "Usage: extract [-C dir] [-f|-n|-i] <archive>\n"
         "Extracts compressed archives automatically by detecting the format if supported.\n"
-        "If a path already exists, asks whether to overwrite (Ctrl+C cancels).\n"
         "\n"
         "Options:\n"
-        "  -v, --version    Show version information and exit\n"
-        "  -h, --help       Show this help message and exit\n"
+        "  -C, --directory DIR  Change to DIR before extracting\n"
+        "  -f, --force          Overwrite existing files without prompting\n"
+        "  -n, --no-clobber     Never overwrite; skip existing paths\n"
+        "  -i, --interactive    Always prompt before overwrite (requires a tty)\n"
+        "  -v, --version        Show version information and exit\n"
+        "  -h, --help           Show this help message and exit\n"
+        "\n"
+        "Default overwrite policy: prompt on a tty; refuse conflicts otherwise.\n"
+        "Only one of -f, -n, or -i may be specified.\n"
     );
 }
 
-void print_version(void)
+static void print_version(void)
 {
     printf(
         "extract (pack-extract) %s\n"
@@ -80,7 +95,6 @@ static int cmp_strptr(const void *a, const void *b)
 /*
  * Ask whether to overwrite an existing path.
  * Returns 1 = overwrite, 0 = skip, -1 = cancel / non-interactive conflict.
- * Ctrl+C delivers SIGINT (default: abort process). EOF / empty → skip.
  */
 static int ask_overwrite(const char *pathname)
 {
@@ -139,7 +153,26 @@ static int path_exists(const char *pathname)
     return lstat(pathname, &st) == 0;
 }
 
-int extract_archive(const char *filename)
+/*
+ * Decide overwrite for a conflicting path.
+ * Returns 1 = overwrite, 0 = skip, -1 = abort.
+ */
+static int resolve_overwrite(OverwriteMode mode, const char *pathname)
+{
+    switch (mode)
+    {
+    case OVERWRITE_FORCE:
+        return 1;
+    case OVERWRITE_NOCLOBBER:
+        return 0;
+    case OVERWRITE_INTERACTIVE:
+    case OVERWRITE_DEFAULT:
+    default:
+        return ask_overwrite(pathname);
+    }
+}
+
+static int extract_archive(const char *filename, OverwriteMode mode)
 {
     struct archive *a = NULL;
     struct archive *ext = NULL;
@@ -148,6 +181,7 @@ int extract_archive(const char *filename)
     struct archive_entry *entry;
     int r;
     int status = 1;
+    int disk_flags;
 
     a = archive_read_new();
     if (!a)
@@ -172,9 +206,15 @@ int extract_archive(const char *filename)
         goto fail;
     }
 
-    archive_write_disk_set_options(ext,
-        ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM |
-        ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS);
+    disk_flags = ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM |
+                 ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS |
+                 ARCHIVE_EXTRACT_SECURE_SYMLINKS |
+                 ARCHIVE_EXTRACT_SECURE_NODOTDOT |
+                 ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS;
+    if (mode == OVERWRITE_FORCE)
+        disk_flags |= ARCHIVE_EXTRACT_UNLINK;
+
+    archive_write_disk_set_options(ext, disk_flags);
     archive_write_disk_set_standard_lookup(ext);
 
     while ((r = archive_read_next_header(a, &entry)) == ARCHIVE_OK)
@@ -194,7 +234,7 @@ int extract_archive(const char *filename)
 
         if (path_exists(pathname) && !is_existing_dir_merge(pathname, entry))
         {
-            int overwrite = ask_overwrite(pathname);
+            int overwrite = resolve_overwrite(mode, pathname);
 
             if (overwrite < 0)
                 goto fail;
@@ -245,6 +285,12 @@ int extract_archive(const char *filename)
         if (r != ARCHIVE_EOF)
         {
             fprintf(stderr, "Error: Failed to read data: %s\n", archive_error_string(a));
+            goto fail;
+        }
+
+        if (archive_write_finish_entry(ext) != ARCHIVE_OK)
+        {
+            fprintf(stderr, "Error: Failed to finish entry: %s\n", archive_error_string(ext));
             goto fail;
         }
     }
@@ -300,30 +346,121 @@ fail:
 
 int main(int argc, char *argv[])
 {
-    if (argc == 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0))
+    const char *filename = NULL;
+    const char *chdir_to = NULL;
+    OverwriteMode mode = OVERWRITE_DEFAULT;
+    int mode_set = 0;
+    int i;
+    struct stat st;
+    char *archive_abs = NULL;
+    int status;
+
+    for (i = 1; i < argc; i++)
     {
-        print_version();
-        return 0;
+        if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0)
+        {
+            print_version();
+            return 0;
+        }
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
+        {
+            print_help();
+            return 0;
+        }
+        if (strcmp(argv[i], "-C") == 0 || strcmp(argv[i], "--directory") == 0)
+        {
+            if (i + 1 >= argc)
+            {
+                fprintf(stderr, "Error: %s requires an argument\n", argv[i]);
+                return 1;
+            }
+            chdir_to = argv[++i];
+            continue;
+        }
+        if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--force") == 0)
+        {
+            if (mode_set)
+            {
+                fprintf(stderr, "Error: Only one of -f, -n, or -i may be specified\n");
+                return 1;
+            }
+            mode = OVERWRITE_FORCE;
+            mode_set = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--no-clobber") == 0)
+        {
+            if (mode_set)
+            {
+                fprintf(stderr, "Error: Only one of -f, -n, or -i may be specified\n");
+                return 1;
+            }
+            mode = OVERWRITE_NOCLOBBER;
+            mode_set = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--interactive") == 0)
+        {
+            if (mode_set)
+            {
+                fprintf(stderr, "Error: Only one of -f, -n, or -i may be specified\n");
+                return 1;
+            }
+            mode = OVERWRITE_INTERACTIVE;
+            mode_set = 1;
+            continue;
+        }
+        if (argv[i][0] == '-' && argv[i][1] != '\0')
+        {
+            fprintf(stderr, "Error: Unknown option: %s\n", argv[i]);
+            print_help();
+            return 1;
+        }
+        if (filename)
+        {
+            fprintf(stderr, "Error: Unexpected argument: %s\n", argv[i]);
+            print_help();
+            return 1;
+        }
+        filename = argv[i];
     }
-    else if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0))
-    {
-        print_help();
-        return 0;
-    }
-    else if (argc != 2)
+
+    if (!filename)
     {
         print_help();
         return 1;
     }
 
-    const char *filename = argv[1];
-
-    struct stat st;
     if (stat(filename, &st) != 0 || !S_ISREG(st.st_mode))
     {
         fprintf(stderr, "Error: File not found: %s\n", filename);
         return 1;
     }
 
-    return extract_archive(filename);
+    /*
+     * Resolve archive to an absolute path before -C so a relative archive
+     * path still opens after chdir.
+     */
+    archive_abs = realpath(filename, NULL);
+    if (!archive_abs)
+    {
+        fprintf(stderr, "Error: Cannot resolve archive path %s: %s\n",
+                filename, strerror(errno));
+        return 1;
+    }
+
+    if (chdir_to)
+    {
+        if (chdir(chdir_to) != 0)
+        {
+            fprintf(stderr, "Error: Cannot change directory to %s: %s\n",
+                    chdir_to, strerror(errno));
+            free(archive_abs);
+            return 1;
+        }
+    }
+
+    status = extract_archive(archive_abs, mode);
+    free(archive_abs);
+    return status;
 }

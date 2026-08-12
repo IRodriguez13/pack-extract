@@ -1,4 +1,4 @@
-.TH EXTRACT 1 "August 2026" "pack-extract 1.5.4" "User Commands"
+.TH EXTRACT 1 "August 2026" "pack-extract 1.5.5" "User Commands"
 .SH NAME
 extract \- automatically extract compressed archives
 .SH SYNOPSIS
@@ -9,6 +9,9 @@ extract \- automatically extract compressed archives
 .RB [ \-h | \-\-help ]
 .br
 .B extract
+.RB [ \-C
+.IR dir ]
+.RB [ \-f | \-n | \-i ]
 .I archive
 .SH DESCRIPTION
 .B extract
@@ -17,31 +20,64 @@ opens
 with
 .BR libarchive (3)
 (all supported formats and filters) and writes members into the current
-directory. After a successful extraction it prints a sorted list of
+directory (or into
+.I dir
+when
+.B \-C
+is given). After a successful extraction it prints a sorted list of
 extracted paths.
 .PP
 Absolute member paths and path components equal to
 .B ..
-are rejected to mitigate zip-slip style traversal.
+are rejected in software. Extraction also enables libarchive's
+.BR ARCHIVE_EXTRACT_SECURE_SYMLINKS ,
+.BR ARCHIVE_EXTRACT_SECURE_NODOTDOT ,
+and
+.B ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS
+options so a symlink on disk cannot redirect writes outside the extract
+tree.
 .PP
-If a member path already exists in the current directory,
+Default overwrite policy: if a member path already exists,
 .B extract
-asks whether to overwrite or replace it
-.RB ( y / N ).
+asks whether to overwrite
+.RB ( y / N )
+when stdin and stdout are a tty; otherwise a conflict aborts with an error.
 Answer
 .B n
 (or Enter) to skip that member.
 .B Ctrl+C
 cancels the whole extraction.
 Existing directories that match a directory member are merged without prompting.
-In non-interactive mode (stdin/stdout not a tty), a conflict aborts with an error.
 .SH OPTIONS
+.TP
+.BI \-C " dir\fR, \fB\-\-directory " dir
+Change to
+.I dir
+before extracting. A relative
+.I archive
+path is resolved before the directory change.
+.TP
+.B \-f, \-\-force
+Overwrite existing files without prompting.
+.TP
+.B \-n, \-\-no\-clobber
+Never overwrite; skip members whose paths already exist.
+.TP
+.B \-i, \-\-interactive
+Always prompt before overwrite (requires a tty; non-tty conflicts still abort).
 .TP
 .B \-v, \-\-version
 Display version information and exit.
 .TP
 .B \-h, \-\-help
 Display help message and exit.
+.PP
+Only one of
+.BR \-f ,
+.BR \-n ,
+or
+.B \-i
+may be specified.
 .SH SUPPORTED FORMATS
 Anything
 .B libarchive
@@ -65,19 +101,19 @@ $ extract backup.tar.gz
 .fi
 .RE
 .PP
-Extract a zip file:
+Extract into a directory, forcing overwrite:
 .PP
 .RS
 .nf
-$ extract project.zip
+$ extract \-C /tmp/out \-f project.zip
 .fi
 .RE
 .PP
-Extract a 7z archive:
+Extract without clobbering existing files:
 .PP
 .RS
 .nf
-$ extract data.7z
+$ extract \-n data.7z
 .fi
 .RE
 .SH EXIT STATUS
@@ -86,8 +122,8 @@ $ extract data.7z
 Successful extraction.
 .TP
 .B 1
-An error occurred (file not found, unsafe path, unsupported or corrupt
-archive, I/O failure).
+An error occurred (file not found, unsafe path, secure-symlink refusal,
+unsupported or corrupt archive, I/O failure).
 .SH DEPENDENCIES
 .B extract
 links against

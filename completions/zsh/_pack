@@ -1,15 +1,16 @@
 #compdef pack
-# zsh completion for pack(1) v1.5.2
+# zsh completion for pack(1)
 
 _pack() {
     local curcontext="$curcontext" state line
     typeset -A opt_args
 
-    _arguments \
+    _arguments -s \
         '(-v --version)'{-v,--version}'[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help message]' \
+        '(-o --output)'{-o+,--output=}'[Output archive path]:output:_files' \
         '1:format:(tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br)' \
-        '2:source:_files'
+        '*:source:_files'
 }
 
 _pack "$@"

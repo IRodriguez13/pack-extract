@@ -15,18 +15,26 @@ Automatically extracts compressed archives by detecting the format.
 
 ### Usage
 ```bash
-extract <archive>
+extract [-C dir] [-f|-n|-i] <archive>
 extract --version
 extract --help
 ```
 
+| Flag | Meaning |
+|------|---------|
+| `-C DIR` | Change to `DIR` before extracting |
+| `-f` | Force overwrite |
+| `-n` | Never overwrite (skip) |
+| `-i` | Always prompt (needs a tty) |
+
+Default overwrite policy: prompt on a tty; refuse conflicts when non-interactive. Only one of `-f`/`-n`/`-i` may be used.
+
 ### Examples
 ```bash
 extract backup.tar.gz
-extract project.zip
-extract logs.tar.xz
-extract data.7z
-extract notes.txt.gz
+extract -C /tmp/out project.zip
+extract -n data.7z
+extract -f logs.tar.xz
 ```
 
 ### Supported formats (via libarchive)
@@ -39,7 +47,7 @@ Archives and compressed streams that libarchive can read, including:
 | single-file | `.gz`, `.xz`, `.bz2`, `.zst`, `.lz4`, `.lzo`, `.br` |
 | archive | `.zip`, `.7z`, and others supported by the linked libarchive |
 
-Content is extracted to the current directory. Paths that are absolute or contain `..` are rejected (zip-slip). If a path already exists, `extract` asks to overwrite (`y`/`N`); Ctrl+C cancels. Non-interactive runs refuse overwrite on conflict.
+Content is extracted to the current directory (or `-C`). Absolute paths and `..` components are rejected; libarchive `SECURE_*` extraction flags are enabled (symlink escape, absolute paths, `..`). See [`Documentation/CLI.md`](Documentation/CLI.md).
 
 ## pack
 
@@ -47,15 +55,18 @@ Packages files or directories into the specified format.
 
 ### Usage
 ```bash
-pack <format> <source>
+pack [-o output] <format> <source> [source...]
 pack --version
 pack --help
 ```
 
+Member paths inside the archive are always relative (`basename` of each source). Symlinks and hardlinks are preserved. Directory trees keep their root prefix.
+
 ### Examples
 ```bash
 pack tar.gz project/
-pack zip src/
+pack -o backup.tar.gz tar.gz /var/tmp/project
+pack zip src/ extras/
 pack tar.xz logs/
 pack 7z backups/
 pack tar.zst dataset/
@@ -80,7 +91,7 @@ pack gz report.txt
 | `zip` | `.zip` | libarchive |
 | `7z` | `.7z` | libarchive |
 
-**Single-file compression** (files only):
+**Single-file compression** (exactly one regular file):
 
 | Format | Extension | Backend |
 |--------|-----------|---------|
@@ -92,7 +103,7 @@ pack gz report.txt
 | `lzo` | `.lzo` | libarchive |
 | `br` | `.br` | libarchive (if built with brotli) |
 
-The generated archive is created in the current directory with the source name plus the format extension (e.g. `report.txt.gz`).
+Without `-o`, the output is `basename(first-source).format` in the current directory.
 
 ## Installation
 
@@ -101,7 +112,7 @@ Prefer a **prebuilt** package so you do not need a compiler.
 ### Debian / Ubuntu (`.deb`, no compile)
 
 ```bash
-VER=1.5.4
+VER=1.5.5
 wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-extract_${VER}-1_amd64.deb"
 sudo apt install "./pack-extract_${VER}-1_amd64.deb"
 pack --version && extract --version
@@ -110,7 +121,7 @@ pack --version && extract --version
 ### Generic Linux (binary tarball, no compile)
 
 ```bash
-VER=1.5.4
+VER=1.5.5
 wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-extract-${VER}-linux-amd64.tar.gz"
 tar -xzf "pack-extract-${VER}-linux-amd64.tar.gz"
 cd "pack-extract-${VER}-linux-amd64"
@@ -147,7 +158,7 @@ sudo ./install.sh         # /usr when root
 
 Local `.deb`: `dpkg-buildpackage -us -uc -b` (needs `debhelper-compat`).
 
-Packaging notes: [`docs/PACKAGING.md`](docs/PACKAGING.md). Contributors: [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
+Packaging notes: [`docs/PACKAGING.md`](docs/PACKAGING.md). CLI contract: [`Documentation/CLI.md`](Documentation/CLI.md). Contributors: [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
 
 Verify ELF binaries:
 

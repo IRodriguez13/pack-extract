@@ -1,7 +1,7 @@
 # pack-extract — packaging checklist
 
-> **Última verificación:** 2026-08-10  
-> **Fuente de verdad:** `Makefile`, `debian/`, `PKGBUILD`, `tests/smoke-test.sh`, `pack.c`, `extract.c`
+> **Última verificación:** 2026-08-11  
+> **Fuente de verdad:** `Makefile`, `debian/`, `PKGBUILD`, `tests/smoke-test.sh`, `pack.c`, `extract.c`, `Documentation/CLI.md`
 
 ## Estado para paquetería
 
@@ -12,7 +12,7 @@
 | `pkg-config libarchive` | OK | Makefile |
 | Man pages `pack(1)` / `extract(1)` | OK | Backend = libarchive |
 | Shell completions bash/zsh | OK | |
-| `make check` (smoke + zip-slip) | OK | `tests/smoke-test.sh` |
+| `make check` (smoke + hardening) | OK | tree, abs path, symlink, SECURE_*, flags |
 | Skeleton Debian (`debian/`) | OK | + `debian/tests/` autopkgtest |
 | CI (GitHub Actions) | OK | `make check` + `dpkg-buildpackage` |
 | AUR `PKGBUILD` | OK | en raíz; publicar en AUR es paso humano |
@@ -40,7 +40,7 @@ dpkg-buildpackage -us -uc -b
 | `pack-extract-bin` | `aur/pack-extract-bin/PKGBUILD` | No (tarball `*-linux-amd64.tar.gz` del release) |
 
 ```bash
-# Tras publicar el release v1.5.4, fijar sha256sums (dejar de usar SKIP):
+# Tras publicar el release v1.5.5, fijar sha256sums (dejar de usar SKIP):
 cd aur/pack-extract-bin
 # bajar el asset, sha256sum, editar PKGBUILD, luego:
 makepkg --printsrcinfo > .SRCINFO

@@ -1,4 +1,4 @@
-.TH PACK 1 "August 2026" "pack-extract 1.5.4" "User Commands"
+.TH PACK 1 "August 2026" "pack-extract 1.5.5" "User Commands"
 .SH NAME
 pack \- create compressed archives in the specified format
 .SH SYNOPSIS
@@ -9,22 +9,42 @@ pack \- create compressed archives in the specified format
 .RB [ \-h | \-\-help ]
 .br
 .B pack
-.I format source
+.RB [ \-o
+.IR output ]
+.I format
+.I source
+.RI [ source... ]
 .SH DESCRIPTION
 .B pack
-creates an archive or compressed file from the given
+creates an archive or compressed file from one or more
 .I source
-(file or directory) in the specified
+paths (files or directories) in the specified
 .IR format
 using
 .BR libarchive (3).
-The output is placed in the current directory, named
-.IB source . format
-(for example
-.BR report.txt.gz ).
+Member pathnames stored in the archive are always relative: each source is
+recorded under
+.BR basename (3)
+of that path (so
+.B /tmp/foo
+becomes
+.BR foo
+inside the archive). Symbolic links are preserved (not followed). Hard links
+to regular files are recorded when the format supports them.
+.PP
+Without
+.BR \-o ,
+the output is named
+.IB basename(first-source) . format
+in the current directory.
 .PP
 This avoids having to remember tool-specific flags for each format.
 .SH OPTIONS
+.TP
+.BI \-o " output\fR, \fB\-\-output " output
+Write the archive to
+.IR output
+instead of the default name.
 .TP
 .B \-v, \-\-version
 Display version information and exit.
@@ -63,7 +83,8 @@ lzo	.lzo	libarchive
 br	.br	libarchive (optional)
 .TE
 .PP
-Single-file formats refuse directories; use an archive format instead.
+Single-file formats require exactly one regular file; use an archive format
+for directories or multiple sources.
 .B tar.br
 and
 .B br
@@ -76,6 +97,14 @@ Create a gzip-compressed tarball of a directory:
 .RS
 .nf
 $ pack tar.gz project/
+.fi
+.RE
+.PP
+Pack an absolute path (stored as a relative basename):
+.PP
+.RS
+.nf
+$ pack \-o backup.tar.gz tar.gz /var/tmp/project
 .fi
 .RE
 .PP

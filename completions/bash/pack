@@ -1,4 +1,4 @@
-# bash completion for pack(1) v1.5.2 -*- shell-script -*-
+# bash completion for pack(1) -*- shell-script -*-
 
 _pack()
 {
@@ -6,24 +6,45 @@ _pack()
     _init_completion -s || return
 
     local formats='tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br'
-    local flags='--help --version -h -v'
+    local flags='--help --version --output -h -v -o'
 
     case $prev in
         -h|--help|-v|--version)
             return
             ;;
+        -o|--output)
+            compopt -o filenames 2>/dev/null
+            COMPREPLY=( $( compgen -f -- "$cur" ) )
+            return
+            ;;
     esac
 
-    if (( cword == 1 )); then
-        if [[ $cur == -* ]]; then
-            COMPREPLY=( $( compgen -W "$flags" -- "$cur" ) )
-        else
-            COMPREPLY=( $( compgen -W "$formats $flags" -- "$cur" ) )
-        fi
+    if [[ $cur == -* ]]; then
+        COMPREPLY=( $( compgen -W "$flags" -- "$cur" ) )
         return
     fi
 
-    if (( cword == 2 )); then
+    # First non-option: format; rest: sources
+    local i have_format=0
+    for (( i=1; i < cword; i++ )); do
+        case ${words[i]} in
+            -o|--output)
+                (( i++ ))
+                continue
+                ;;
+            -*)
+                continue
+                ;;
+            *)
+                have_format=1
+                break
+                ;;
+        esac
+    done
+
+    if (( have_format == 0 )); then
+        COMPREPLY=( $( compgen -W "$formats $flags" -- "$cur" ) )
+    else
         compopt -o filenames 2>/dev/null
         COMPREPLY=( $( compgen -f -- "$cur" ) )
     fi

@@ -1,26 +1,30 @@
-# bash completion for extract(1) v1.5.2 -*- shell-script -*-
+# bash completion for extract(1) -*- shell-script -*-
 
 _extract()
 {
     local cur prev words cword
     _init_completion || return
 
-    local flags='--help --version -h -v'
+    local flags='--help --version --directory --force --no-clobber --interactive -h -v -C -f -n -i'
 
     case $prev in
         -h|--help|-v|--version)
             return
             ;;
+        -C|--directory)
+            compopt -o filenames 2>/dev/null
+            COMPREPLY=( $( compgen -d -- "$cur" ) )
+            return
+            ;;
     esac
 
-    if (( cword == 1 )); then
-        if [[ $cur == -* ]]; then
-            COMPREPLY=( $( compgen -W "$flags" -- "$cur" ) )
-        else
-            compopt -o filenames 2>/dev/null
-            COMPREPLY=( $( compgen -f -- "$cur" ) )
-        fi
+    if [[ $cur == -* ]]; then
+        COMPREPLY=( $( compgen -W "$flags" -- "$cur" ) )
+        return
     fi
+
+    compopt -o filenames 2>/dev/null
+    COMPREPLY=( $( compgen -f -- "$cur" ) )
 } &&
     complete -F _extract extract
 

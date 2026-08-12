@@ -1,10 +1,14 @@
 #compdef extract
-# zsh completion for extract(1) v1.5.2
+# zsh completion for extract(1)
 
 _extract() {
-    _arguments \
+    _arguments -s \
         '(-v --version)'{-v,--version}'[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help message]' \
+        '(-C --directory)'{-C+,--directory=}'[Change to directory before extracting]:directory:_files -/' \
+        '(-f --force -n --no-clobber -i --interactive)'{-f,--force}'[Overwrite without prompting]' \
+        '(-f --force -n --no-clobber -i --interactive)'{-n,--no-clobber}'[Never overwrite existing files]' \
+        '(-f --force -n --no-clobber -i --interactive)'{-i,--interactive}'[Prompt before overwrite]' \
         '1:archive file:_files -g "*.{tar,tar.gz,tgz,tar.xz,txz,tar.bz2,tbz2,tar.zst,tzst,tar.lz4,tlz4,tar.lz,tlzo,tar.br,tbr,gz,xz,bz2,zst,lz4,lzo,br,zip,7z,rar,cpio}"'
 }
 

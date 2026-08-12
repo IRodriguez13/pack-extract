@@ -1,3 +1,12 @@
+pack-extract (1.5.5-1) UNRELEASED; urgency=medium
+
+  * pack: preserve directory trees, relative member paths, symlinks and hardlinks.
+  * pack: check libarchive write errors; -o output; multiple sources.
+  * extract: SECURE_SYMLINKS/NODOTDOT/NOABSOLUTEPATHS; -C/-f/-n/-i.
+  * Smoke: tree, absolute source, symlink, flags, -C, symlink-escape.
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Tue, 11 Aug 2026 21:50:00 -0300
+
 pack-extract (1.5.4-1) UNRELEASED; urgency=medium
 
   * extract: prompt before overwriting existing paths (y/N; Ctrl+C cancels).
