@@ -16,14 +16,16 @@ Format detection on unpack uses libarchive `archive_read_support_format_all` fir
 
 ## Single-file formats
 
-`pack` writes them as `ARCHIVE_FORMAT_RAW` plus a compression filter (`ARCHIVE_FORMAT_EMPTY` has no writer). On unpack, RAW members named `data` are renamed by stripping a known suffix from the archive basename (`foo.txt.gz` → `foo.txt`).
+`pack` writes them as `ARCHIVE_FORMAT_RAW` plus a compression filter (`ARCHIVE_FORMAT_EMPTY` has no writer). On unpack, RAW members named `data` are renamed by stripping only a simple outer compression suffix from the archive basename (`foo.txt.gz` → `foo.txt`; `foo.tar.gz` → `foo.tar`). Compound suffixes like `.tar.gz` are not peeled to a bare stem — if `format_all` had recognized a container, unpack would not be on the RAW path.
 
 ## Output safety (pack)
 
 | Guard | Behavior |
 |-------|----------|
 | Same path | Refuse `pack -o foo … foo` before open (would truncate the source) |
-| Archive in tree | After open, `archive_write_set_skip_file(dev, ino)` plus a pre-header `dev`/`ino` skip so walking a directory that contains the output does not nest the archive inside itself |
+| Basename collision | Refuse when two sources share the same `basename` archive root (e.g. `a/config` and `b/config`) |
+| Atomic write | Pack to a temp file next to the final path (`.#pack-XXXXXX`); `rename` onto the destination only after a successful close — never truncates an existing final path on failure |
+| Archive in tree | After opening the temp, `archive_write_set_skip_file` on the temp inode plus a pre-header inode skip for the temp; the final destination path is skipped by `realpath` when replacing an archive that sits inside a walked tree (inode skip alone would drop hardlinked sources) |
 
 ## Round-trip invariant
 
@@ -70,7 +72,7 @@ Only one of `-f`, `-n`, `-i` may be set. `-C DIR` changes directory before unpac
 make clean all check
 ```
 
-Smoke coverage includes format round-trips (archives **and** single-file `gz`/`xz`/`zstd`), directory trees, absolute sources, symlink preservation, overwrite flags, `-C`, zip-slip rejection, symlink-escape refusal, output==source refusal, skip_file self-archive exclusion, and the `extract` argv0 alias.
+Smoke coverage includes format round-trips (archives **and** single-file `gz`/`xz`/`zstd`), RAW naming that keeps `.tar` under `.gz`, directory trees, absolute sources, symlink preservation, overwrite flags, `-C`, zip-slip rejection, symlink-escape refusal, output==source refusal, multi-source basename collision refusal, hardlink-safe atomic output, skip_file self-archive exclusion, and the `extract` argv0 alias.
 
 ## Namespace
 

@@ -42,7 +42,7 @@ CLI \`pack\` / \`unpack\` in C (libarchive). Optional local alias: \`extract\` â
 ### Install without compiling (Debian / Ubuntu amd64)
 
 \`\`\`bash
-wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-unpack_${VERSION}-1_amd64.deb
+wget https://github.com/IRodriguez13/pack-unpack/releases/download/${TAG}/pack-unpack_${VERSION}-1_amd64.deb
 sudo apt install ./pack-unpack_${VERSION}-1_amd64.deb
 pack --version && unpack --version
 \`\`\`
@@ -52,7 +52,7 @@ Runtime dependency: \`libarchive\` (pulled in by apt).
 ### Install without compiling (generic Linux amd64 tarball)
 
 \`\`\`bash
-wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-unpack-${VERSION}-linux-amd64.tar.gz
+wget https://github.com/IRodriguez13/pack-unpack/releases/download/${TAG}/pack-unpack-${VERSION}-linux-amd64.tar.gz
 tar -xzf pack-unpack-${VERSION}-linux-amd64.tar.gz
 cd pack-unpack-${VERSION}-linux-amd64
 ./install.sh          # ~/.local/bin (includes extractâ†’unpack alias)

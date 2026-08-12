@@ -8,9 +8,9 @@ Build-Depends: debhelper-compat (= 13),
                make
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Homepage: https://github.com/IRodriguez13/pack-extract
-Vcs-Browser: https://github.com/IRodriguez13/pack-extract
-Vcs-Git: https://github.com/IRodriguez13/pack-extract.git
+Homepage: https://github.com/IRodriguez13/pack-unpack
+Vcs-Browser: https://github.com/IRodriguez13/pack-unpack
+Vcs-Git: https://github.com/IRodriguez13/pack-unpack.git
 
 Package: pack-unpack
 Architecture: any

@@ -1,3 +1,11 @@
+pack-unpack (1.5.7-1) UNRELEASED; urgency=medium
+
+  * RAW: strip only outer compression suffix (foo.tar.gz -> foo.tar).
+  * pack: reject duplicate archive basenames; write via temp + rename.
+  * Branding URLs and GitHub description point at pack-unpack.
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Tue, 11 Aug 2026 22:40:00 -0300
+
 pack-unpack (1.5.6-1) UNRELEASED; urgency=medium
 
   * Rename extract → unpack (canonical); extract remains optional local alias.

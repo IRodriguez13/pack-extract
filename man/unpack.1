@@ -1,4 +1,4 @@
-.TH UNPACK 1 "August 2026" "pack-unpack 1.5.6" "User Commands"
+.TH UNPACK 1 "August 2026" "pack-unpack 1.5.7" "User Commands"
 .SH NAME
 unpack \- automatically unpack compressed archives
 .PP
@@ -104,8 +104,18 @@ single-file compression streams.
 .PP
 For RAW streams, the member is often named
 .B data
-internally; extract renames it by stripping a known compression suffix from
-the archive basename.
+internally; extract renames it by stripping only a simple outer compression
+suffix from the archive basename
+.RB ( .gz , .bz2 , .xz , .zst , …),
+so
+.B foo.tar.gz
+becomes
+.B foo.tar
+(not
+.BR foo ).
+If
+.B format_all
+had recognized a container archive, unpack would not use the RAW path.
 .PP
 Exact coverage depends on how
 .B libarchive

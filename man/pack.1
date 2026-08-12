@@ -1,4 +1,4 @@
-.TH PACK 1 "August 2026" "pack-unpack 1.5.6" "User Commands"
+.TH PACK 1 "August 2026" "pack-unpack 1.5.7" "User Commands"
 .SH NAME
 pack \- create compressed archives in the specified format
 .SH SYNOPSIS
@@ -38,9 +38,15 @@ use libarchive
 plus a compression filter.
 .PP
 The output path must not be the same as a source (that would truncate the
-input). If the output sits inside a directory being packed,
+input). Multiple sources that share the same
+.BR basename (3)
+archive root are rejected. The archive is written to a temporary file in the
+same directory and
+.BR rename (2) d
+into place only on success, so a failed pack never truncates an existing
+destination. If the temp or final path sits inside a directory being packed,
 .B archive_write_set_skip_file
-excludes it from the archive contents.
+and a matching inode skip exclude them from the archive contents.
 .PP
 Without
 .BR \-o ,

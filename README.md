@@ -114,8 +114,8 @@ Prefer a **prebuilt** package so you do not need a compiler.
 ### Debian / Ubuntu (`.deb`, no compile)
 
 ```bash
-VER=1.5.6
-wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-unpack_${VER}-1_amd64.deb"
+VER=1.5.7
+wget "https://github.com/IRodriguez13/pack-unpack/releases/download/v${VER}/pack-unpack_${VER}-1_amd64.deb"
 sudo apt install "./pack-unpack_${VER}-1_amd64.deb"
 pack --version && unpack --version
 ```
@@ -123,8 +123,8 @@ pack --version && unpack --version
 ### Generic Linux (binary tarball, no compile)
 
 ```bash
-VER=1.5.6
-wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-unpack-${VER}-linux-amd64.tar.gz"
+VER=1.5.7
+wget "https://github.com/IRodriguez13/pack-unpack/releases/download/v${VER}/pack-unpack-${VER}-linux-amd64.tar.gz"
 tar -xzf "pack-unpack-${VER}-linux-amd64.tar.gz"
 cd "pack-unpack-${VER}-linux-amd64"
 ./install.sh          # ~/.local/bin

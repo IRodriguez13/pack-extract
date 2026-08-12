@@ -278,6 +278,48 @@ static int archive_root_name(const char *path, char *out, size_t outsz)
     return 0;
 }
 
+/*
+ * Reject multi-source packs whose basenames collide inside the archive
+ * (e.g. a/config and b/config both map to member "config").
+ */
+static int check_unique_archive_roots(char **sources, int nsources)
+{
+    char (*roots)[PATH_MAX];
+    int i, j;
+
+    if (nsources < 2)
+        return 0;
+
+    roots = calloc((size_t)nsources, PATH_MAX);
+    if (!roots)
+    {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        return -1;
+    }
+
+    for (i = 0; i < nsources; i++)
+    {
+        if (archive_root_name(sources[i], roots[i], PATH_MAX) != 0)
+        {
+            free(roots);
+            return -1;
+        }
+        for (j = 0; j < i; j++)
+        {
+            if (strcmp(roots[j], roots[i]) == 0)
+            {
+                fprintf(stderr,
+                        "Error: multiple sources map to archive path '%s'\n",
+                        roots[i]);
+                free(roots);
+                return -1;
+            }
+        }
+    }
+    free(roots);
+    return 0;
+}
+
 /* Returns 0 = ok, -1 = error. */
 static int write_header_checked(struct archive *a, struct archive_entry *entry)
 {
@@ -343,7 +385,8 @@ static int write_file_data(struct archive *a, const char *fs_path, la_int64_t si
 
 static int add_to_archive(struct archive *a, const char *fs_path,
                           const char *archive_path, HardlinkMap *hl,
-                          int have_skip, dev_t skip_dev, ino_t skip_ino)
+                          int have_skip, dev_t skip_dev, ino_t skip_ino,
+                          const char *skip_path_abs)
 {
     struct stat st;
     struct archive_entry *entry;
@@ -356,9 +399,22 @@ static int add_to_archive(struct archive *a, const char *fs_path,
         return -1;
     }
 
-    /* Skip the output archive itself (do not call write_header — that wedges libarchive). */
+    /* Skip temp inode (do not call write_header — that wedges libarchive). */
     if (have_skip && st.st_dev == skip_dev && st.st_ino == skip_ino)
         return 0;
+
+    /*
+     * Skip the final output path by realpath (not inode): a hardlink from
+     * output → a source file must still be packed; only the destination name
+     * inside a walked tree is excluded (self-archive nesting when replacing).
+     */
+    if (skip_path_abs)
+    {
+        char cur_abs[PATH_MAX];
+
+        if (realpath(fs_path, cur_abs) && strcmp(cur_abs, skip_path_abs) == 0)
+            return 0;
+    }
 
     entry = archive_entry_new();
     if (!entry)
@@ -434,7 +490,8 @@ static int add_to_archive(struct archive *a, const char *fs_path,
                 closedir(dir);
                 return -1;
             }
-            if (add_to_archive(a, subpath, subbase, hl, have_skip, skip_dev, skip_ino) != 0)
+            if (add_to_archive(a, subpath, subbase, hl, have_skip, skip_dev, skip_ino,
+                               skip_path_abs) != 0)
             {
                 closedir(dir);
                 return -1;
@@ -504,7 +561,12 @@ int main(int argc, char *argv[])
     HardlinkMap hl = {NULL};
     char output_buf[PATH_MAX];
     const char *output;
+    char temp_path[PATH_MAX];
+    int temp_fd = -1;
+    int have_temp = 0;
     int status = 1;
+
+    temp_path[0] = '\0';
 
     for (i = 1; i < argc; i++)
     {
@@ -621,11 +683,45 @@ int main(int argc, char *argv[])
             return 1;
     }
 
+    if (check_unique_archive_roots(sources, nsources) != 0)
+        return 1;
+
+    /* Write to a temp file in the same directory; rename only on success. */
+    {
+        char *out_dup;
+        char *dir;
+        int n;
+
+        out_dup = strdup(output);
+        if (!out_dup)
+        {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            return 1;
+        }
+        dir = dirname(out_dup);
+        n = snprintf(temp_path, sizeof(temp_path), "%s/.#pack-XXXXXX", dir);
+        free(out_dup);
+        if (n < 0 || (size_t)n >= sizeof(temp_path))
+        {
+            fprintf(stderr, "Error: Temporary path too long\n");
+            return 1;
+        }
+        temp_fd = mkstemp(temp_path);
+        if (temp_fd < 0)
+        {
+            fprintf(stderr, "Error: Cannot create temporary file: %s\n", strerror(errno));
+            return 1;
+        }
+        close(temp_fd);
+        temp_fd = -1;
+        have_temp = 1;
+    }
+
     a = archive_write_new();
     if (!a)
     {
         fprintf(stderr, "Error: Failed to create archive\n");
-        return 1;
+        goto fail;
     }
 
     if (archive_write_set_format(a, fmt->format_id) != ARCHIVE_OK)
@@ -642,32 +738,38 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (archive_write_open_filename(a, output) != ARCHIVE_OK)
+    if (archive_write_open_filename(a, temp_path) != ARCHIVE_OK)
     {
         fprintf(stderr, "Error: Failed to open output file: %s\n", archive_error_string(a));
         goto fail;
     }
 
-    /* Do not archive the output file if it sits inside a packed directory tree. */
+    /* Skip temp inode; also skip final output path by name when replacing in-tree. */
     {
-        struct stat out_st;
+        struct stat temp_st;
+        char out_abs[PATH_MAX];
+        const char *skip_path_abs = NULL;
         int have_skip = 0;
         dev_t skip_dev = 0;
         ino_t skip_ino = 0;
 
-        if (stat(output, &out_st) != 0)
+        if (stat(temp_path, &temp_st) != 0)
         {
-            fprintf(stderr, "Error: Cannot stat output %s: %s\n", output, strerror(errno));
+            fprintf(stderr, "Error: Cannot stat temporary %s: %s\n",
+                    temp_path, strerror(errno));
             goto fail;
         }
-        if (archive_write_set_skip_file(a, out_st.st_dev, out_st.st_ino) != ARCHIVE_OK)
+        if (archive_write_set_skip_file(a, temp_st.st_dev, temp_st.st_ino) != ARCHIVE_OK)
         {
             fprintf(stderr, "Error: Failed to set skip_file: %s\n", archive_error_string(a));
             goto fail;
         }
         have_skip = 1;
-        skip_dev = out_st.st_dev;
-        skip_ino = out_st.st_ino;
+        skip_dev = temp_st.st_dev;
+        skip_ino = temp_st.st_ino;
+
+        if (realpath(output, out_abs))
+            skip_path_abs = out_abs;
 
         for (i = 0; i < nsources; i++)
         {
@@ -675,7 +777,8 @@ int main(int argc, char *argv[])
 
             if (archive_root_name(sources[i], root, sizeof(root)) != 0)
                 goto fail;
-            if (add_to_archive(a, sources[i], root, &hl, have_skip, skip_dev, skip_ino) != 0)
+            if (add_to_archive(a, sources[i], root, &hl, have_skip, skip_dev, skip_ino,
+                               skip_path_abs) != 0)
                 goto fail;
         }
     }
@@ -686,6 +789,14 @@ int main(int argc, char *argv[])
         goto fail;
     }
 
+    if (rename(temp_path, output) != 0)
+    {
+        fprintf(stderr, "Error: Cannot rename temporary to %s: %s\n",
+                output, strerror(errno));
+        goto fail;
+    }
+    have_temp = 0;
+
     printf("Archive created successfully: %s\n", output);
     status = 0;
 
@@ -693,5 +804,7 @@ fail:
     hardlink_map_free(&hl);
     if (a)
         archive_write_free(a);
+    if (have_temp && temp_path[0] != '\0')
+        unlink(temp_path);
     return status;
 }

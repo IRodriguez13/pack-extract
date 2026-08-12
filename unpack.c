@@ -206,13 +206,13 @@ static int is_raw_archive_format(struct archive *a)
 
 /*
  * libarchive RAW members are named "data". Derive a usable name by stripping
- * a known compression suffix from the archive basename (gunzip-style).
+ * only a simple outer compression suffix from the archive basename (gunzip-style).
+ * Compound names like .tar.gz must become .tar, not a bare stem: if format_all
+ * had recognized a container we would not be on the RAW path.
  */
 static int derive_raw_member_name(const char *archive_path, char *out, size_t outsz)
 {
     static const char *const suffixes[] = {
-        ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tar.lz4",
-        ".tar.lz", ".tar.lzo", ".tar.br",
         ".gz", ".bz2", ".xz", ".zst", ".zstd", ".lz4", ".lzo", ".lz", ".br",
         NULL
     };

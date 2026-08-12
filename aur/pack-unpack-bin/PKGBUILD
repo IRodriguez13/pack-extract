@@ -2,18 +2,18 @@
 # shellcheck disable=SC2034,SC2154
 # Prebuilt binaries from GitHub Releases — no compile step.
 pkgname=pack-unpack-bin
-pkgver=1.5.6
+pkgver=1.5.7
 pkgrel=1
 pkgdesc="Create and unpack archives via libarchive (prebuilt pack/unpack)"
 arch=('x86_64')
-url="https://github.com/IRodriguez13/pack-extract"
+url="https://github.com/IRodriguez13/pack-unpack"
 license=('GPL-3.0-or-later')
 depends=('libarchive')
 provides=('pack-unpack')
 conflicts=('pack-unpack')
 options=('!strip')
 source=("pack-unpack-${pkgver}-linux-amd64.tar.gz::${url}/releases/download/v${pkgver}/pack-unpack-${pkgver}-linux-amd64.tar.gz")
-sha256sums=('2ae046ab06329226c993b59914ac5828a40cb7fba1b941b2a4270168057d25cb')
+sha256sums=('SKIP')
 
 package() {
   cd "pack-unpack-${pkgver}-linux-amd64"

@@ -230,6 +230,45 @@ fi
 tar -tf selfdir/backup.tar | grep -q 'selfdir/sub/a.txt'
 echo "  OK skip_file excludes archive inside source tree"
 
+# --- RAW naming: strip only outer compression (foo.tar.gz -> foo.tar) ---
+echo "raw-outer-suffix..."
+rm -f foo foo.tar foo.tar.gz
+# Non-tar payload so format_all does not claim a container; RAW path applies.
+printf 'not-a-tar-payload\n' > foo.tar
+"$PACK" gz foo.tar
+test -f foo.tar.gz
+rm -f foo.tar
+"$UNPACK" foo.tar.gz
+test -f foo.tar
+test ! -e foo
+grep -q '^not-a-tar-payload$' foo.tar
+echo "  OK RAW keeps .tar under .gz"
+
+# --- multi-source basename collision ---
+echo "basename-collision..."
+rm -rf a b collide.tar
+mkdir -p a b
+echo 1 > a/config
+echo 2 > b/config
+if "$PACK" tar a/config b/config >/dev/null 2>&1; then
+    echo "FAIL: pack should reject colliding archive roots"
+    exit 1
+fi
+echo "  OK colliding basenames refused"
+
+# --- hardlink output safety (atomic write; do not truncate hardlinked source) ---
+echo "hardlink-output-safety..."
+rm -rf source backup.tar
+mkdir -p source
+echo secret > source/important.dat
+ln source/important.dat backup.tar
+"$PACK" -o backup.tar tar source/
+grep -q '^secret$' source/important.dat
+test -f backup.tar
+# archive must be a real tar (not the truncated hardlink target)
+tar -tf backup.tar | grep -q 'source/important.dat'
+echo "  OK hardlinked output path did not clobber source data"
+
 # --- optional extract argv0 alias (same binary) ---
 echo "extract-alias..."
 ln -sfn "$UNPACK" extract

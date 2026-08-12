@@ -1,17 +1,17 @@
 # Maintainer: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
 # shellcheck disable=SC2034,SC2154
 pkgname=pack-unpack
-pkgver=1.5.6
+pkgver=1.5.7
 pkgrel=1
 pkgdesc="Create and unpack archives via libarchive (pack/unpack)"
 arch=('x86_64' 'aarch64')
-url="https://github.com/IRodriguez13/pack-extract"
+url="https://github.com/IRodriguez13/pack-unpack"
 license=('GPL-3.0-or-later')
 depends=('libarchive')
 makedepends=('gcc' 'make' 'pkgconf')
 # Do not install extract alias — avoids clash with libextractor's /usr/bin/extract.
 source=("${pkgname}-${pkgver}.tar.gz::${url}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('bb33cdf1f0c83f284372a5951c0c7f18876127fc6ff325ea7c949e9718db5b17')
+sha256sums=('SKIP')
 
 build() {
   cd "${pkgname}-${pkgver}"

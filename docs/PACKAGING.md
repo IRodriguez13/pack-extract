@@ -24,7 +24,7 @@
 ```bash
 sudo apt-get install -y libarchive-dev build-essential debhelper-compat
 
-cd /path/to/pack-extract   # git clone path; product name is pack-unpack
+cd /path/to/pack-unpack
 make clean all
 make check
 
