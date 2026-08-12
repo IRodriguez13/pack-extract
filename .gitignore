@@ -1,9 +1,10 @@
 # Build directory
 build/
 
-# Compiled binaries
-pack
-extract
+# Compiled binaries at repo root (not tests/pack/)
+/pack
+/unpack
+/extract
 
 # Object files
 *.o

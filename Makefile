@@ -12,7 +12,8 @@ ARCHIVE_LIBS := -larchive
 endif
 
 CFLAGS ?= -O2 -Wall -Wextra -pedantic
-CFLAGS += -Iinclude -DPACK_UNPACK_VERSION=\"$(VERSION)\" $(ARCHIVE_CFLAGS)
+# Always append include/version flags even when the caller overrides CFLAGS.
+override CFLAGS += -Iinclude -DPACK_UNPACK_VERSION=\"$(VERSION)\" $(ARCHIVE_CFLAGS)
 # dpkg-buildpackage sets LDFLAGS (hardening/LTO); libraries go in LDLIBS.
 LDFLAGS ?=
 LDLIBS ?= $(ARCHIVE_LIBS)
@@ -27,18 +28,9 @@ UNPACK_SRC = unpack.c
 # with GNU libextractor's /usr/bin/extract).
 INSTALL_EXTRACT_ALIAS ?= 1
 
+# Caller chooses PREFIX (default /usr/local). Do not rewrite based on uid.
 PREFIX ?= /usr/local
 DESTDIR ?=
-
-ifeq ($(shell id -u),0)
-    ifeq ($(PREFIX),/usr/local)
-        PREFIX = /usr
-    endif
-else
-    ifeq ($(PREFIX),/usr/local)
-        PREFIX = $(HOME)/.local
-    endif
-endif
 
 BIN_DIR = $(DESTDIR)$(PREFIX)/bin
 MAN_DIR = $(DESTDIR)$(PREFIX)/share/man/man1
@@ -55,7 +47,7 @@ BIN_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 DIST_BIN_NAME = pack-unpack-$(VERSION)-linux-$(BIN_ARCH)
 DIST_BIN_DIR = dist/$(DIST_BIN_NAME)
 DIST_BIN_TAR = dist/$(DIST_BIN_NAME).tar.gz
-PACK_FILES = VERSION COPYING Makefile README.md CONTRIBUTORS.md Documentation docs/PACKAGING.md PKGBUILD aur pack.c unpack.c include man completions debian install.sh scripts/verify-c-install.sh scripts/install-from-bin-tarball.sh tests/smoke-test.sh .gitignore
+PACK_FILES = VERSION COPYING Makefile README.md CONTRIBUTORS.md Documentation docs/PACKAGING.md PKGBUILD aur pack.c unpack.c include man completions debian install.sh scripts/verify-c-install.sh scripts/install-from-bin-tarball.sh tests .gitignore
 
 .PHONY: all pack unpack clean install uninstall check help dist-pack dist-bin dist-unpack release
 
@@ -115,8 +107,8 @@ install: all
 	@echo "Installation completed successfully."
 
 check: all
-	@chmod +x tests/smoke-test.sh
-	@./tests/smoke-test.sh
+	@chmod +x tests/run.sh tests/smoke-test.sh tests/pack/*.sh tests/unpack/*.sh
+	@./tests/run.sh
 
 uninstall:
 	@echo "Uninstalling from $(BIN_DIR)..."
@@ -160,8 +152,8 @@ release:
 help:
 	@echo "Available targets:"
 	@echo "  all          - Build pack and unpack binaries in $(BUILD_DIR)/"
-	@echo "  check        - Run smoke tests (tests/smoke-test.sh)"
-	@echo "  install      - Install binaries, man pages, and completions (PREFIX=$(PREFIX))"
+	@echo "  check        - Run regression tests (tests/run.sh)"
+	@echo "  install      - Install binaries, man pages, and completions (PREFIX=$(PREFIX); default /usr/local)"
 	@echo "                 INSTALL_EXTRACT_ALIAS=$(INSTALL_EXTRACT_ALIAS) (extract→unpack symlink)"
 	@echo "  uninstall    - Remove installed files"
 	@echo "  dist-pack    - Create source dist/$(DIST_NAME).tar.gz"

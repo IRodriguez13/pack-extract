@@ -6,10 +6,10 @@ _pack()
     _init_completion -s || return
 
     local formats='tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br'
-    local flags='--help --version --output -h -v -o'
+    local flags='--help --version --verbose --output -h -v -o'
 
     case $prev in
-        -h|--help|-v|--version)
+        -h|--help|--version)
             return
             ;;
         -o|--output)

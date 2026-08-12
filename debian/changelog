@@ -1,3 +1,15 @@
+pack-unpack (1.6.0-1) UNRELEASED; urgency=medium
+
+  * Breaking: -v/--verbose lists members; version is --version only.
+  * Silent success; drop extracted_files summary allocation.
+  * pack: resolve . / .. roots; mkstemp+open_fd; archive_read_disk walk.
+  * pack: reject FIFO/socket/device; open+fstat short-read errors.
+  * unpack: NO_OVERWRITE + SAFE_WRITES; prompt uses stderr tty.
+  * Tests split under tests/pack and tests/unpack; portable CI matrix.
+  * COPYING is full GPLv3; Makefile PREFIX is caller-chosen.
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Wed, 12 Aug 2026 00:20:00 -0300
+
 pack-unpack (1.5.7-1) UNRELEASED; urgency=medium
 
   * RAW: strip only outer compression suffix (foo.tar.gz -> foo.tar).

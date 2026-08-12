@@ -1,14 +1,15 @@
-.TH PACK 1 "August 2026" "pack-unpack 1.5.7" "User Commands"
+.TH PACK 1 "August 2026" "pack-unpack 1.6.0" "User Commands"
 .SH NAME
 pack \- create compressed archives in the specified format
 .SH SYNOPSIS
 .B pack
-.RB [ \-v | \-\-version ]
+.B \-\-version
 .br
 .B pack
 .RB [ \-h | \-\-help ]
 .br
 .B pack
+.RB [ \-v | \-\-verbose ]
 .RB [ \-o
 .IR output ]
 .I format
@@ -22,39 +23,54 @@ paths (files or directories) in the specified
 .IR format
 using
 .BR libarchive (3).
-Member pathnames stored in the archive are always relative: each source is
-recorded under
+Filesystem trees are walked with
+.B archive_read_disk
+so path handling stays with libarchive. Member pathnames stored in the
+archive are always relative: each source is recorded under
 .BR basename (3)
 of that path (so
 .B /tmp/foo
 becomes
 .BR foo
-inside the archive). Symbolic links are preserved (not followed). Hard links
-to regular files are recorded when the format supports them.
+inside the archive). Sources named
+.B .
+or
+.B ..
+are resolved with
+.BR realpath (3)
+before deriving the archive root. Symbolic links are preserved (not followed).
+Hard links to regular files are recorded when the format supports them.
+FIFOs, sockets, and device nodes are rejected with an error.
 Single-file formats
 .RB ( gz , bz2 , xz , zstd , …)
 use libarchive
 .B ARCHIVE_FORMAT_RAW
 plus a compression filter.
 .PP
+On success
+.B pack
+is silent. Use
+.B \-v
+to list member paths as they are packed.
+.PP
 The output path must not be the same as a source (that would truncate the
 input). Multiple sources that share the same
 .BR basename (3)
-archive root are rejected. The archive is written to a temporary file in the
-same directory and
-.BR rename (2) d
-into place only on success, so a failed pack never truncates an existing
-destination. If the temp or final path sits inside a directory being packed,
-.B archive_write_set_skip_file
-and a matching inode skip exclude them from the archive contents.
+archive root are rejected. The archive is written via
+.BR mkstemp (3)
+keeping the file descriptor open,
+.BR archive_write_open_fd (3),
+then
+.BR rename (2)
+into place only on success. Temporary mode is
+.BR 0666
+masked by the process umask.
 .PP
 Without
 .BR \-o ,
 the output is named
 .IB basename(first-source) . format
 in the current directory.
-.PP
-This avoids having to remember tool-specific flags for each format.
 .SH OPTIONS
 .TP
 .BI \-o " output\fR, \fB\-\-output " output
@@ -62,7 +78,10 @@ Write the archive to
 .IR output
 instead of the default name.
 .TP
-.B \-v, \-\-version
+.B \-v, \-\-verbose
+List archive members as they are packed.
+.TP
+.B \-\-version
 Display version information and exit.
 .TP
 .B \-h, \-\-help
@@ -142,11 +161,13 @@ $ pack gz report.txt
 .SH EXIT STATUS
 .TP
 .B 0
-Archive created successfully.
+Success (no output unless
+.B \-v
+was given).
 .TP
 .B 1
-An error occurred (source not found, unsupported format, directory with
-single-file format, creation failure).
+An error occurred (source not found, unsupported format or file type,
+directory with single-file format, creation failure).
 .SH DEPENDENCIES
 .B pack
 links against

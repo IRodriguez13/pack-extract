@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Iván Ezequiel Rodriguez
  * License: GPLv3+
  *
- * Usage: unpack [-C dir] [-f|-n|-i] <archive>
+ * Usage: unpack [-v] [-C dir] [-f|-n|-i] <archive>
  * Alias: extract (optional symlink; avoid when GNU libextractor owns /usr/bin/extract)
  */
 
@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <limits.h>
 #include <libgen.h>
 #include <unistd.h>
 #include <errno.h>
@@ -20,7 +19,6 @@
 #include <archive_entry.h>
 #include "version.h"
 
-/* libarchive read block size (bytes); matches common examples in archive.h docs */
 #define EXTRACT_BLOCK_SIZE 10240
 
 typedef enum
@@ -31,7 +29,8 @@ typedef enum
     OVERWRITE_INTERACTIVE
 } OverwriteMode;
 
-/* Canonical name is unpack; extract is an optional argv0 alias. */
+static int g_verbose = 0;
+
 static const char *prog_name(const char *argv0)
 {
     const char *base;
@@ -50,16 +49,18 @@ static void print_help(const char *argv0)
     const char *name = prog_name(argv0);
 
     printf(
-        "Usage: %s [-C dir] [-f|-n|-i] <archive>\n"
+        "Usage: %s [-v] [-C dir] [-f|-n|-i] <archive>\n"
         "Unpacks compressed archives automatically by detecting the format if supported.\n"
         "Canonical command: unpack. Optional alias: extract (symlink).\n"
+        "Success is silent; use -v to list members as they are unpacked.\n"
         "\n"
         "Options:\n"
         "  -C, --directory DIR  Change to DIR before unpacking\n"
         "  -f, --force          Overwrite existing files without prompting\n"
         "  -n, --no-clobber     Never overwrite; skip existing paths\n"
         "  -i, --interactive    Always prompt before overwrite (requires a tty)\n"
-        "  -v, --version        Show version information and exit\n"
+        "  -v, --verbose        List members as they are unpacked\n"
+        "      --version        Show version information and exit\n"
         "  -h, --help           Show this help message and exit\n"
         "\n"
         "Default overwrite policy: prompt on a tty; refuse conflicts otherwise.\n"
@@ -86,7 +87,6 @@ static void print_version(const char *argv0)
     );
 }
 
-/* Reject absolute paths and ".." components (zip-slip). */
 static int entry_path_is_safe(const char *pathname)
 {
     const char *p;
@@ -108,20 +108,11 @@ static int entry_path_is_safe(const char *pathname)
     return 1;
 }
 
-static int cmp_strptr(const void *a, const void *b)
-{
-    return strcmp(*(const char *const *)a, *(const char *const *)b);
-}
-
-/*
- * Ask whether to overwrite an existing path.
- * Returns 1 = overwrite, 0 = skip, -1 = cancel / non-interactive conflict.
- */
 static int ask_overwrite(const char *pathname)
 {
     char line[64];
 
-    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+    if (!isatty(STDIN_FILENO) || !isatty(STDERR_FILENO))
     {
         fprintf(stderr,
                 "Error: '%s' already exists (non-interactive; refusing overwrite)\n",
@@ -156,7 +147,6 @@ static int ask_overwrite(const char *pathname)
     }
 }
 
-/* Existing directory + directory entry: merge without prompting. */
 static int is_existing_dir_merge(const char *pathname, struct archive_entry *entry)
 {
     struct stat st;
@@ -174,10 +164,6 @@ static int path_exists(const char *pathname)
     return lstat(pathname, &st) == 0;
 }
 
-/*
- * Decide overwrite for a conflicting path.
- * Returns 1 = overwrite, 0 = skip, -1 = abort.
- */
 static int resolve_overwrite(OverwriteMode mode, const char *pathname)
 {
     switch (mode)
@@ -204,13 +190,8 @@ static int is_raw_archive_format(struct archive *a)
 #endif
 }
 
-/*
- * libarchive RAW members are named "data". Derive a usable name by stripping
- * only a simple outer compression suffix from the archive basename (gunzip-style).
- * Compound names like .tar.gz must become .tar, not a bare stem: if format_all
- * had recognized a container we would not be on the RAW path.
- */
-static int derive_raw_member_name(const char *archive_path, char *out, size_t outsz)
+/* Returns malloc'd name; caller frees. */
+static char *derive_raw_member_name(const char *archive_path)
 {
     static const char *const suffixes[] = {
         ".gz", ".bz2", ".xz", ".zst", ".zstd", ".lz4", ".lzo", ".lz", ".br",
@@ -220,13 +201,14 @@ static int derive_raw_member_name(const char *archive_path, char *out, size_t ou
     char *base;
     size_t blen;
     const char *const *s;
+    char *out;
 
-    if (!archive_path || !out || outsz == 0)
-        return -1;
+    if (!archive_path)
+        return NULL;
 
     dup = strdup(archive_path);
     if (!dup)
-        return -1;
+        return NULL;
     base = basename(dup);
     blen = strlen(base);
 
@@ -238,33 +220,29 @@ static int derive_raw_member_name(const char *archive_path, char *out, size_t ou
         {
             size_t keep = blen - slen;
 
-            if (keep == 0 || keep >= outsz)
+            if (keep == 0)
             {
                 free(dup);
-                return -1;
+                return NULL;
+            }
+            out = malloc(keep + 1);
+            if (!out)
+            {
+                free(dup);
+                return NULL;
             }
             memcpy(out, base, keep);
             out[keep] = '\0';
             free(dup);
-            return 0;
+            return out;
         }
     }
 
-    if (blen == 0 || blen >= outsz)
-    {
-        free(dup);
-        return -1;
-    }
-    memcpy(out, base, blen + 1);
+    out = strdup(base);
     free(dup);
-    return 0;
+    return out;
 }
 
-/*
- * Open a reader. raw_only=0 → format_all (no RAW).
- * raw_only=1 → format_raw only (bare compressed streams).
- * Combining both lets mtree falsely win on some gzip payloads.
- */
 static struct archive *open_archive_reader(const char *filename, int raw_only)
 {
     struct archive *a = archive_read_new();
@@ -286,17 +264,27 @@ static struct archive *open_archive_reader(const char *filename, int raw_only)
     return a;
 }
 
+static int skip_entry_data(struct archive *a, const char *pathname)
+{
+    if (g_verbose)
+        printf("Skipping: %s\n", pathname);
+    if (archive_read_data_skip(a) != ARCHIVE_OK)
+    {
+        fprintf(stderr, "Error: Failed to skip entry: %s\n", archive_error_string(a));
+        return -1;
+    }
+    return 0;
+}
+
 static int unpack_archive(const char *filename, OverwriteMode mode)
 {
     struct archive *a = NULL;
     struct archive *ext = NULL;
-    char **extracted_files = NULL;
-    size_t extracted_count = 0;
     struct archive_entry *entry;
     int r;
     int status = 1;
     int disk_flags;
-    char raw_name[PATH_MAX];
+    char *raw_name = NULL;
 
     a = open_archive_reader(filename, 0);
     if (!a)
@@ -308,7 +296,6 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
     r = archive_read_next_header(a, &entry);
     if (r != ARCHIVE_OK)
     {
-        /* Controlled RAW fallback for single-file compressed streams. */
         archive_read_free(a);
         a = open_archive_reader(filename, 1);
         if (!a)
@@ -336,9 +323,12 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
                  ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS |
                  ARCHIVE_EXTRACT_SECURE_SYMLINKS |
                  ARCHIVE_EXTRACT_SECURE_NODOTDOT |
-                 ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS;
+                 ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS |
+                 ARCHIVE_EXTRACT_SAFE_WRITES;
     if (mode == OVERWRITE_FORCE)
         disk_flags |= ARCHIVE_EXTRACT_UNLINK;
+    else
+        disk_flags |= ARCHIVE_EXTRACT_NO_OVERWRITE;
 
     archive_write_disk_set_options(ext, disk_flags);
     archive_write_disk_set_standard_lookup(ext);
@@ -346,14 +336,17 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
     do
     {
         const char *pathname = archive_entry_pathname(entry);
-        char **new_list;
         const void *buff;
         size_t size;
         la_int64_t offset;
 
+        free(raw_name);
+        raw_name = NULL;
+
         if (is_raw_archive_format(a))
         {
-            if (derive_raw_member_name(filename, raw_name, sizeof(raw_name)) != 0)
+            raw_name = derive_raw_member_name(filename);
+            if (!raw_name)
             {
                 fprintf(stderr, "Error: Cannot derive output name for raw stream\n");
                 goto fail;
@@ -377,36 +370,39 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
                 goto fail;
             if (overwrite == 0)
             {
-                printf("Skipping: %s\n", pathname);
-                if (archive_read_data_skip(a) != ARCHIVE_OK)
+                if (skip_entry_data(a, pathname) != 0)
+                    goto fail;
+                continue;
+            }
+            /* Interactive/default yes: remove so NO_OVERWRITE allows recreate. */
+            if (mode != OVERWRITE_FORCE)
+            {
+                if (unlink(pathname) != 0 && errno != ENOENT)
                 {
-                    fprintf(stderr, "Error: Failed to skip entry: %s\n",
-                            archive_error_string(a));
+                    fprintf(stderr, "Error: Cannot remove '%s': %s\n",
+                            pathname, strerror(errno));
                     goto fail;
                 }
-                continue;
             }
         }
 
-        printf("Unpacking: %s\n", pathname);
+        if (g_verbose)
+            printf("%s\n", pathname);
 
-        new_list = realloc(extracted_files, (extracted_count + 1) * sizeof(char *));
-        if (!new_list)
+        r = archive_write_header(ext, entry);
+        if (r != ARCHIVE_OK)
         {
-            fprintf(stderr, "Error: Memory allocation failed\n");
-            goto fail;
-        }
-        extracted_files = new_list;
-        extracted_files[extracted_count] = strdup(pathname);
-        if (!extracted_files[extracted_count])
-        {
-            fprintf(stderr, "Error: Memory allocation failed\n");
-            goto fail;
-        }
-        ++extracted_count;
-
-        if (archive_write_header(ext, entry) != ARCHIVE_OK)
-        {
+            /*
+             * Race under -n / default: file appeared after our check.
+             * NO_OVERWRITE makes libarchive refuse; treat as skip for -n,
+             * error otherwise.
+             */
+            if (mode == OVERWRITE_NOCLOBBER && path_exists(pathname))
+            {
+                if (skip_entry_data(a, pathname) != 0)
+                    goto fail;
+                continue;
+            }
             fprintf(stderr, "Error: Failed to write header: %s\n", archive_error_string(ext));
             goto fail;
         }
@@ -438,36 +434,10 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
         goto fail;
     }
 
-    if (extracted_count > 0)
-    {
-        qsort(extracted_files, extracted_count, sizeof(char *), cmp_strptr);
-
-        printf("\nArchive unpacked successfully.\nUnpack result:\n");
-        for (size_t i = 0; i < extracted_count; ++i)
-        {
-            printf("%s\n", extracted_files[i]);
-            free(extracted_files[i]);
-            extracted_files[i] = NULL;
-        }
-        free(extracted_files);
-        extracted_files = NULL;
-        extracted_count = 0;
-    }
-    else
-    {
-        printf("Archive unpacked successfully\n");
-    }
-
     status = 0;
 
 fail:
-    if (extracted_files)
-    {
-        for (size_t i = 0; i < extracted_count; ++i)
-            free(extracted_files[i]);
-        free(extracted_files);
-        extracted_files = NULL;
-    }
+    free(raw_name);
     if (ext)
     {
         archive_write_free(ext);
@@ -495,7 +465,7 @@ int main(int argc, char *argv[])
 
     for (i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0)
+        if (strcmp(argv[i], "--version") == 0)
         {
             print_version(argv0);
             return 0;
@@ -504,6 +474,11 @@ int main(int argc, char *argv[])
         {
             print_help(argv0);
             return 0;
+        }
+        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
+        {
+            g_verbose = 1;
+            continue;
         }
         if (strcmp(argv[i], "-C") == 0 || strcmp(argv[i], "--directory") == 0)
         {
@@ -575,10 +550,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /*
-     * Resolve archive to an absolute path before -C so a relative archive
-     * path still opens after chdir.
-     */
     archive_abs = realpath(filename, NULL);
     if (!archive_abs)
     {

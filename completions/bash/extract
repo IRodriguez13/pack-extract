@@ -5,10 +5,10 @@ _extract()
     local cur prev words cword
     _init_completion || return
 
-    local flags='--help --version --directory --force --no-clobber --interactive -h -v -C -f -n -i'
+    local flags='--help --version --verbose --directory --force --no-clobber --interactive -h -v -C -f -n -i'
 
     case $prev in
-        -h|--help|-v|--version)
+        -h|--help|--version)
             return
             ;;
         -C|--directory)

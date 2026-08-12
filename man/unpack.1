@@ -1,4 +1,4 @@
-.TH UNPACK 1 "August 2026" "pack-unpack 1.5.7" "User Commands"
+.TH UNPACK 1 "August 2026" "pack-unpack 1.6.0" "User Commands"
 .SH NAME
 unpack \- automatically unpack compressed archives
 .PP
@@ -8,12 +8,13 @@ Optional compatibility alias:
 .BR /usr/bin/extract ).
 .SH SYNOPSIS
 .B unpack
-.RB [ \-v | \-\-version ]
+.B \-\-version
 .br
 .B unpack
 .RB [ \-h | \-\-help ]
 .br
 .B unpack
+.RB [ \-v | \-\-verbose ]
 .RB [ \-C
 .IR dir ]
 .RB [ \-f | \-n | \-i ]
@@ -29,24 +30,31 @@ directory (or into
 .I dir
 when
 .B \-C
-is given). After a successful extraction it prints a sorted list of
-extracted paths.
+is given). On success
+.B unpack
+is silent. Use
+.B \-v
+to list member paths as they are unpacked.
 .PP
 Absolute member paths and path components equal to
 .B ..
 are rejected in software. Extraction also enables libarchive's
 .BR ARCHIVE_EXTRACT_SECURE_SYMLINKS ,
 .BR ARCHIVE_EXTRACT_SECURE_NODOTDOT ,
+.BR ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS ,
 and
-.B ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS
-options so a symlink on disk cannot redirect writes outside the extract
-tree.
+.B ARCHIVE_EXTRACT_SAFE_WRITES
+options. Default and
+.B \-n
+modes also set
+.B ARCHIVE_EXTRACT_NO_OVERWRITE
+so existing files are not replaced under races.
 .PP
 Default overwrite policy: if a member path already exists,
 .B unpack
 asks whether to overwrite
 .RB ( y / N )
-when stdin and stdout are a tty; otherwise a conflict aborts with an error.
+when stdin and stderr are a tty; otherwise a conflict aborts with an error.
 Answer
 .B n
 (or Enter) to skip that member.
@@ -71,7 +79,10 @@ Never overwrite; skip members whose paths already exist.
 .B \-i, \-\-interactive
 Always prompt before overwrite (requires a tty; non-tty conflicts still abort).
 .TP
-.B \-v, \-\-version
+.B \-v, \-\-verbose
+List members as they are unpacked (and skipped, when applicable).
+.TP
+.B \-\-version
 Display version information and exit.
 .TP
 .B \-h, \-\-help
@@ -104,7 +115,7 @@ single-file compression streams.
 .PP
 For RAW streams, the member is often named
 .B data
-internally; extract renames it by stripping only a simple outer compression
+internally; unpack renames it by stripping only a simple outer compression
 suffix from the archive basename
 .RB ( .gz , .bz2 , .xz , .zst , …),
 so
@@ -147,7 +158,9 @@ $ unpack \-n data.7z
 .SH EXIT STATUS
 .TP
 .B 0
-Successful extraction.
+Success (no output unless
+.B \-v
+was given).
 .TP
 .B 1
 An error occurred (file not found, unsafe path, secure-symlink refusal,

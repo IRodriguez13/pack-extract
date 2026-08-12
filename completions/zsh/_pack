@@ -6,7 +6,8 @@ _pack() {
     typeset -A opt_args
 
     _arguments -s \
-        '(-v --version)'{-v,--version}'[Show version information]' \
+        '(-v --verbose)'{-v,--verbose}'[List members as they are packed]' \
+        '(--version)--version[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help message]' \
         '(-o --output)'{-o+,--output=}'[Output archive path]:output:_files' \
         '1:format:(tar tar.gz tar.xz tar.bz2 tar.zst tar.lz4 tar.lz tar.lzo tar.br zip 7z gz bz2 xz zstd lz4 lzo br)' \

@@ -1,16 +1,18 @@
 # pack / unpack — CLI and security contract
 
-> **Última verificación:** 2026-08-11
-> **Fuente de verdad:** [`pack.c`](../pack.c), [`unpack.c`](../unpack.c), [`tests/smoke-test.sh`](../tests/smoke-test.sh)
+> **Última verificación:** 2026-08-12
+> **Fuente de verdad:** [`pack.c`](../pack.c), [`unpack.c`](../unpack.c), [`tests/run.sh`](../tests/run.sh)
 
 ## Interface
 
 ```text
-pack   [-o output] <format> <source> [source...]
-unpack [-C dir] [-f|-n|-i] <archive>
+pack   [-v] [-o output] <format> <source> [source...]
+unpack [-v] [-C dir] [-f|-n|-i] <archive>
 ```
 
 Canonical verbs: **pack** creates; **unpack** consumes. Optional compatibility alias: **extract** → same binary as `unpack` (argv0-aware help/version). Distro packages omit the `extract` symlink so they do not clash with GNU libextractor.
+
+Success is **silent**. `-v` / `--verbose` lists members as they are processed. Version is **only** `--version` (`-v` is not an alias for version).
 
 Format detection on unpack uses libarchive `archive_read_support_format_all` first, then a **controlled RAW-only retry** when the first header fails (needed for `gz`/`xz`/`zstd`/… because `support_format_all` omits RAW, and enabling both at once can let mtree falsely bid).
 
@@ -24,8 +26,12 @@ Format detection on unpack uses libarchive `archive_read_support_format_all` fir
 |-------|----------|
 | Same path | Refuse `pack -o foo … foo` before open (would truncate the source) |
 | Basename collision | Refuse when two sources share the same `basename` archive root (e.g. `a/config` and `b/config`) |
-| Atomic write | Pack to a temp file next to the final path (`.#pack-XXXXXX`); `rename` onto the destination only after a successful close — never truncates an existing final path on failure |
-| Archive in tree | After opening the temp, `archive_write_set_skip_file` on the temp inode plus a pre-header inode skip for the temp; the final destination path is skipped by `realpath` when replacing an archive that sits inside a walked tree (inode skip alone would drop hardlinked sources) |
+| `.` / `..` roots | `realpath` then basename; never store `../…` members |
+| Atomic write | `mkstemp` → `fchmod(0666&~umask)` → `archive_write_open_fd` → close fd → `rename` |
+| Archive in tree | `archive_write_set_skip_file` on the temp inode; final destination skipped by `realpath` |
+| Unsupported types | FIFO/socket/device → error (no silent skip) |
+
+Trees are walked with `archive_read_disk` (physical symlinks). Regular file bodies use `open` + `fstat` on the same fd; short reads are errors.
 
 ## Round-trip invariant
 
@@ -33,9 +39,9 @@ Everything `pack` produces with normal options must be consumable by `unpack`:
 
 | Rule | Behavior |
 |------|----------|
-| Member pathnames | Always **relative**; root = `basename(source)` (e.g. `/tmp/foo` → `foo/…`) |
+| Member pathnames | Always **relative**; root = `basename(source)` (after resolving `.`/`..`) |
 | Directory trees | Children keep the parent prefix (`foo/a.txt`, not flattened `a.txt`) |
-| Symlinks | Preserved via `lstat` + `AE_IFLNK` (not followed) |
+| Symlinks | Preserved (not followed) |
 | Hardlinks | Same `(st_dev, st_ino)` recorded as hardlink when the format supports it |
 | Absolute sources | Allowed as input; stored without a leading `/` |
 
@@ -48,12 +54,14 @@ Defense in depth:
    - `ARCHIVE_EXTRACT_SECURE_SYMLINKS`
    - `ARCHIVE_EXTRACT_SECURE_NODOTDOT`
    - `ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS`
+   - `ARCHIVE_EXTRACT_SAFE_WRITES`
+3. Default and `-n` also set `ARCHIVE_EXTRACT_NO_OVERWRITE`.
 
 ### Overwrite policy
 
 | Mode | Flag | Behavior |
 |------|------|----------|
-| Default | (none) | TTY: prompt `y/N`; non-TTY: refuse conflict |
+| Default | (none) | TTY (stdin+stderr): prompt `y/N`; non-TTY: refuse conflict |
 | Force | `-f` / `--force` | Overwrite; also sets `ARCHIVE_EXTRACT_UNLINK` |
 | No-clobber | `-n` / `--no-clobber` | Skip existing paths |
 | Interactive | `-i` / `--interactive` | Always prompt (still refuses on non-TTY) |
@@ -64,7 +72,7 @@ Only one of `-f`, `-n`, `-i` may be set. `-C DIR` changes directory before unpac
 
 ## pack errors
 
-`archive_write_set_format`, `add_filter`, `open`, `header`, `data`, and `close` failures propagate as `EXIT_FAILURE`. Success is printed only when the archive closed cleanly.
+`archive_write_set_format`, `add_filter`, `open_fd`, `header`, `data`, and `close` failures propagate as `EXIT_FAILURE`. Success produces no stdout unless `-v` was given.
 
 ## Verification
 
@@ -72,7 +80,7 @@ Only one of `-f`, `-n`, `-i` may be set. `-C DIR` changes directory before unpac
 make clean all check
 ```
 
-Smoke coverage includes format round-trips (archives **and** single-file `gz`/`xz`/`zstd`), RAW naming that keeps `.tar` under `.gz`, directory trees, absolute sources, symlink preservation, overwrite flags, `-C`, zip-slip rejection, symlink-escape refusal, output==source refusal, multi-source basename collision refusal, hardlink-safe atomic output, skip_file self-archive exclusion, and the `extract` argv0 alias.
+Matriz completa script → propiedad: [`TESTING.md`](TESTING.md). Harness: `tests/run.sh`.
 
 ## Namespace
 

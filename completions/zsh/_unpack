@@ -3,7 +3,8 @@
 
 _unpack() {
     _arguments -s \
-        '(-v --version)'{-v,--version}'[Show version information]' \
+        '(-v --verbose)'{-v,--verbose}'[List members as they are unpacked]' \
+        '(--version)--version[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help message]' \
         '(-C --directory)'{-C+,--directory=}'[Change to directory before unpacking]:directory:_files -/' \
         '(-f --force -n --no-clobber -i --interactive)'{-f,--force}'[Overwrite without prompting]' \

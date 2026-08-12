@@ -1,13 +1,8 @@
 # Pack / Unpack Utilities
 
-Simple utilities for compressing and extracting files without having to remember flags or specific formats.
+Small, predictable Unix utilities with a stable scripting interface for creating and extracting archives — without memorizing per-format flags.
 
-The objective is to unify the most common workflow:
-
-- Unpack anything
-- Package in the format of your choice
-
-Implemented in **C** with [libarchive](https://www.libarchive.org/). Format detection and I/O go through libarchive (no per-format CLI flags).
+Implemented in **C** with [libarchive](https://www.libarchive.org/). Format detection and I/O go through libarchive. Success is silent; use `-v` to list members.
 
 ## unpack
 
@@ -15,19 +10,21 @@ Automatically unpacks compressed archives by detecting the format.
 
 ### Usage
 ```bash
-unpack [-C dir] [-f|-n|-i] <archive>
+unpack [-v] [-C dir] [-f|-n|-i] <archive>
 unpack --version
 unpack --help
 ```
 
 | Flag | Meaning |
 |------|---------|
+| `-v` | List members as they are unpacked |
 | `-C DIR` | Change to `DIR` before unpacking |
 | `-f` | Force overwrite |
 | `-n` | Never overwrite (skip) |
 | `-i` | Always prompt (needs a tty) |
+| `--version` | Show version (not `-v`) |
 
-Default overwrite policy: prompt on a tty; refuse conflicts when non-interactive. Only one of `-f`/`-n`/`-i` may be used.
+Default overwrite policy: prompt when stdin and stderr are a tty; refuse conflicts when non-interactive. Only one of `-f`/`-n`/`-i` may be used.
 
 Local installs may also provide `extract` as a symlink to `unpack` (`INSTALL_EXTRACT_ALIAS=1`). Distro packages omit that alias to avoid clashing with GNU libextractor.
 
@@ -57,12 +54,12 @@ Packages files or directories into the specified format.
 
 ### Usage
 ```bash
-pack [-o output] <format> <source> [source...]
+pack [-v] [-o output] <format> <source> [source...]
 pack --version
 pack --help
 ```
 
-Member paths inside the archive are always relative (`basename` of each source). Symlinks and hardlinks are preserved. Directory trees keep their root prefix.
+Member paths inside the archive are always relative (`basename` of each source; `.` / `..` are resolved first). Symlinks and hardlinks are preserved. Directory trees keep their root prefix. Unsupported types (FIFO/socket/device) fail with an error.
 
 ### Examples
 ```bash
@@ -114,7 +111,7 @@ Prefer a **prebuilt** package so you do not need a compiler.
 ### Debian / Ubuntu (`.deb`, no compile)
 
 ```bash
-VER=1.5.7
+VER=1.6.0
 wget "https://github.com/IRodriguez13/pack-unpack/releases/download/v${VER}/pack-unpack_${VER}-1_amd64.deb"
 sudo apt install "./pack-unpack_${VER}-1_amd64.deb"
 pack --version && unpack --version
@@ -123,7 +120,7 @@ pack --version && unpack --version
 ### Generic Linux (binary tarball, no compile)
 
 ```bash
-VER=1.5.7
+VER=1.6.0
 wget "https://github.com/IRodriguez13/pack-unpack/releases/download/v${VER}/pack-unpack-${VER}-linux-amd64.tar.gz"
 tar -xzf "pack-unpack-${VER}-linux-amd64.tar.gz"
 cd "pack-unpack-${VER}-linux-amd64"
@@ -153,38 +150,30 @@ Build dependency: **libarchive** (`libarchive-dev` / `libarchive`).
 
 ```bash
 sudo apt-get install -y libarchive-dev build-essential
-./install.sh              # ~/.local/bin when non-root
-sudo ./install.sh         # /usr when root
-# or: make clean all check && sudo make PREFIX=/usr install
+make clean all check
+make PREFIX="$HOME/.local" install          # or: sudo make PREFIX=/usr INSTALL_EXTRACT_ALIAS=0 install
+# ./install.sh wraps the same PREFIX choices for convenience
 ```
 
 Local `.deb`: `dpkg-buildpackage -us -uc -b` (needs `debhelper-compat`).
 
 Packaging notes: [`docs/PACKAGING.md`](docs/PACKAGING.md). CLI contract: [`Documentation/CLI.md`](Documentation/CLI.md). Contributors: [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
 
-Verify ELF binaries:
-
 ```bash
-file "$(command -v unpack)"
+pack --version
 unpack --version
-```
-
-Man pages:
-
-```bash
 man unpack
 man pack
 ```
 
 ## Requirements
 
-**Build:** `gcc`, `make`, `pkg-config`, `libarchive` development package.
+**Build:** `gcc` or `clang`, `make`, `pkg-config`, `libarchive` development package.
 
 **Runtime:** `libarchive` (e.g. `libarchive13` / `libarchive13t64` on Debian/Ubuntu). Some filters may need codecs present in the system libarchive build (zstd, lz4, brotli, …).
 
 ## Notes
 
-- Designed for local and manual use
+- Stable scripting interface: success is silent; errors on stderr; `-v` for member lists
 - Not a replacement for advanced archiving tools (`7z` GUI, encrypted volumes, etc.)
-- Canonical binaries are `pack` and `unpack` (`extract` is an optional local alias) (generic; see packaging notes if packaging for Debian official)
-- Clear errors and a sorted list of unpacked paths on success
+- Canonical binaries are `pack` and `unpack` (`extract` is an optional local alias; see packaging notes)

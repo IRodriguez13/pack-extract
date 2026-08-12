@@ -7,32 +7,76 @@ on:
     branches: [master]
 
 jobs:
-  build-and-test:
+  linux-gcc:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libarchive-dev build-essential
-
-      - name: Build and smoke test
+      - name: Build and test (gcc)
         run: make clean all check
+
+  linux-clang-asan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-dev clang
+      - name: Build and test (clang + ASan/UBSan)
+        run: |
+          make clean
+          make all check CC=clang \
+            CFLAGS='-O1 -g -Wall -Wextra -pedantic -fsanitize=address,undefined' \
+            LDFLAGS='-fsanitize=address,undefined'
+
+  linux-musl:
+    runs-on: ubuntu-latest
+    container: alpine:3.20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: apk add --no-cache build-base libarchive-dev pkgconf bash python3 tar
+      - name: Build and test (musl)
+        run: make clean all check
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libarchive
+        run: brew install libarchive pkg-config
+      - name: Build and test
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix libarchive)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          make clean all check
+
+  freebsd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y libarchive pkgconf gmake python3 bash
+          run: |
+            gmake clean all check
 
   deb-package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install packaging dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libarchive-dev build-essential debhelper-compat
-
       - name: Build .deb
         run: dpkg-buildpackage -us -uc -b
-
       - name: Verify .deb artifacts
         run: |
           VERSION="$(tr -d '[:space:]' < VERSION)"
