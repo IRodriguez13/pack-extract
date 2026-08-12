@@ -1,4 +1,4 @@
-.TH PACK 1 "August 2026" "pack-extract 1.5.5" "User Commands"
+.TH PACK 1 "August 2026" "pack-unpack 1.5.6" "User Commands"
 .SH NAME
 pack \- create compressed archives in the specified format
 .SH SYNOPSIS
@@ -31,6 +31,16 @@ becomes
 .BR foo
 inside the archive). Symbolic links are preserved (not followed). Hard links
 to regular files are recorded when the format supports them.
+Single-file formats
+.RB ( gz , bz2 , xz , zstd , …)
+use libarchive
+.B ARCHIVE_FORMAT_RAW
+plus a compression filter.
+.PP
+The output path must not be the same as a source (that would truncate the
+input). If the output sits inside a directory being packed,
+.B archive_write_set_skip_file
+excludes it from the archive contents.
 .PP
 Without
 .BR \-o ,
@@ -138,6 +148,7 @@ links against
 Build requires the libarchive development package and
 .BR pkg-config (1).
 .SH SEE ALSO
+.BR unpack (1),
 .BR extract (1),
 .BR libarchive (3)
 .SH AUTHORS

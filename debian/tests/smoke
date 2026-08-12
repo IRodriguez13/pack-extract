@@ -1,7 +1,7 @@
 #!/bin/sh
-# Autopkgtest: exercise installed pack/extract against source smoke script.
+# Autopkgtest: exercise installed pack/unpack against source smoke script.
 set -e
 export PACK=/usr/bin/pack
-export EXTRACT=/usr/bin/extract
+export UNPACK=/usr/bin/unpack
 chmod +x tests/smoke-test.sh
 ./tests/smoke-test.sh

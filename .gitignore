@@ -29,7 +29,7 @@ debian/.debhelper/
 debian/debhelper-build-stamp
 debian/files
 debian/*.substvars
-debian/pack-extract/
+debian/pack-unpack/
 *.buildinfo
 *.changes
 *.ddeb

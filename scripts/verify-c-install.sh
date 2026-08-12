@@ -1,34 +1,25 @@
 #!/usr/bin/env bash
-# Verify pack/extract are ELF C binaries, not legacy bash wrappers.
+# Verify pack/unpack are ELF C binaries, not legacy bash wrappers.
 set -euo pipefail
 
-fail=0
-for cmd in pack extract; do
-    path="$(command -v "$cmd" || true)"
-    if [ -z "$path" ]; then
-        echo "FAIL: $cmd not in PATH"
-        fail=1
+missing=0
+for cmd in pack unpack; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "missing: $cmd"
+        missing=1
         continue
     fi
-    echo "== $cmd => $path =="
-    file "$path"
-    if file -b "$path" | grep -q 'shell script'; then
-        echo "FAIL: $cmd is still a bash wrapper"
-        fail=1
-    elif ! file -b "$path" | grep -q 'ELF'; then
-        echo "FAIL: $cmd is not ELF"
-        fail=1
+    path="$(command -v "$cmd")"
+    if ! file "$path" | grep -q ELF; then
+        echo "not ELF: $path"
+        missing=1
     else
+        echo "ok: $path"
         "$cmd" --version | head -1
-        echo "OK"
     fi
-    echo
 done
 
-if [ "$fail" -ne 0 ]; then
-    echo "Fix: sudo apt-get install -y libarchive-dev build-essential"
-    echo "     cd ~/Escritorio/pack-extract && sudo ./install.sh"
+if [ "$missing" -ne 0 ]; then
+    echo "hint: make && make install   # or sudo make PREFIX=/usr INSTALL_EXTRACT_ALIAS=0 install"
     exit 1
 fi
-
-echo "All checks passed."

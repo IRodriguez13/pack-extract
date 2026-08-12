@@ -1,3 +1,13 @@
+pack-unpack (1.5.6-1) UNRELEASED; urgency=medium
+
+  * Rename extract → unpack (canonical); extract remains optional local alias.
+  * Debian package renamed pack-extract → pack-unpack; no /usr/bin/extract
+    in the .deb (avoids GNU libextractor clash).
+  * pack: ARCHIVE_FORMAT_RAW for single-file streams; skip_file for self-archive.
+  * unpack: controlled RAW fallback; SECURE_* flags; -C/-f/-n/-i.
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Tue, 11 Aug 2026 22:10:00 -0300
+
 pack-extract (1.5.5-1) UNRELEASED; urgency=medium
 
   * pack: preserve directory trees, relative member paths, symlinks and hardlinks.

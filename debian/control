@@ -1,4 +1,4 @@
-Source: pack-extract
+Source: pack-unpack
 Section: utils
 Priority: optional
 Maintainer: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
@@ -12,12 +12,15 @@ Homepage: https://github.com/IRodriguez13/pack-extract
 Vcs-Browser: https://github.com/IRodriguez13/pack-extract
 Vcs-Git: https://github.com/IRodriguez13/pack-extract.git
 
-Package: pack-extract
+Package: pack-unpack
 Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends}
-Description: create and extract archives via libarchive (pack/extract)
- Two small CLI tools: pack creates archives; extract detects format and
- unpacks. Implemented in C using libarchive (no per-format flag memorization).
+Description: create and unpack archives via libarchive (pack/unpack)
+ Two small CLI tools: pack creates archives; unpack detects format and
+ writes members to disk. Implemented in C using libarchive.
  .
- Provides: pack, extract
+ Canonical commands: pack, unpack.
+ An optional extract→unpack symlink exists for local installs
+ (INSTALL_EXTRACT_ALIAS=1) but is omitted from this package so it does
+ not clash with GNU libextractor's extract(1).

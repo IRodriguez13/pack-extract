@@ -36,5 +36,5 @@ jobs:
       - name: Verify .deb artifacts
         run: |
           VERSION="$(tr -d '[:space:]' < VERSION)"
-          test -f "../pack-extract_${VERSION}-1_amd64.deb"
-          dpkg-deb -I "../pack-extract_${VERSION}-1_amd64.deb" | grep -q 'Package: pack-extract'
+          test -f "../pack-unpack_${VERSION}-1_amd64.deb"
+          dpkg-deb -I "../pack-unpack_${VERSION}-1_amd64.deb" | grep -q 'Package: pack-unpack'

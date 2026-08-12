@@ -7,10 +7,10 @@ cd "$ROOT"
 
 VERSION="$(tr -d '[:space:]' < VERSION)"
 TAG="v${VERSION}"
-TAR="dist/pack-extract-${VERSION}.tar.gz"
-BIN_TAR="$(ls -1 dist/pack-extract-${VERSION}-linux-*.tar.gz 2>/dev/null | head -1 || true)"
+TAR="dist/pack-unpack-${VERSION}.tar.gz"
+BIN_TAR="$(ls -1 dist/pack-unpack-${VERSION}-linux-*.tar.gz 2>/dev/null | head -1 || true)"
 GH="${GH:-gh}"
-DEB="$(ls -1 ../*pack-extract_${VERSION}-*_amd64.deb 2>/dev/null | head -1 || true)"
+DEB="$(ls -1 ../*pack-unpack_${VERSION}-*_amd64.deb 2>/dev/null | head -1 || true)"
 
 if ! command -v "$GH" >/dev/null 2>&1; then
     echo "error: gh CLI not found" >&2
@@ -35,16 +35,16 @@ else
 fi
 
 NOTES="$(cat <<EOF
-## pack-extract ${VERSION}
+## pack-unpack ${VERSION}
 
-CLI \`pack\` / \`extract\` in C (libarchive). No need to remember per-format flags.
+CLI \`pack\` / \`unpack\` in C (libarchive). Optional local alias: \`extract\` → \`unpack\`.
 
 ### Install without compiling (Debian / Ubuntu amd64)
 
 \`\`\`bash
-wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-extract_${VERSION}-1_amd64.deb
-sudo apt install ./pack-extract_${VERSION}-1_amd64.deb
-pack --version && extract --version
+wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-unpack_${VERSION}-1_amd64.deb
+sudo apt install ./pack-unpack_${VERSION}-1_amd64.deb
+pack --version && unpack --version
 \`\`\`
 
 Runtime dependency: \`libarchive\` (pulled in by apt).
@@ -52,10 +52,10 @@ Runtime dependency: \`libarchive\` (pulled in by apt).
 ### Install without compiling (generic Linux amd64 tarball)
 
 \`\`\`bash
-wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-extract-${VERSION}-linux-amd64.tar.gz
-tar -xzf pack-extract-${VERSION}-linux-amd64.tar.gz
-cd pack-extract-${VERSION}-linux-amd64
-./install.sh          # ~/.local/bin
+wget https://github.com/IRodriguez13/pack-extract/releases/download/${TAG}/pack-unpack-${VERSION}-linux-amd64.tar.gz
+tar -xzf pack-unpack-${VERSION}-linux-amd64.tar.gz
+cd pack-unpack-${VERSION}-linux-amd64
+./install.sh          # ~/.local/bin (includes extract→unpack alias)
 # sudo ./install.sh   # /usr
 \`\`\`
 
@@ -63,16 +63,16 @@ Needs \`libarchive\` installed on the system (\`libarchive13\` / \`libarchive\` 
 
 ### Arch (AUR)
 
-- \`pack-extract-bin\` — prebuilt (no compile); see \`aur/pack-extract-bin/PKGBUILD\` in the repo
-- \`pack-extract\` — build from source (\`PKGBUILD\` at repo root)
+- \`pack-unpack-bin\` — prebuilt (no compile); see \`aur/pack-unpack-bin/PKGBUILD\`
+- \`pack-unpack\` — build from source (\`PKGBUILD\` at repo root)
 
 ### From source
 
 \`\`\`bash
-tar -xzf pack-extract-${VERSION}.tar.gz
-cd pack-extract-${VERSION}
+tar -xzf pack-unpack-${VERSION}.tar.gz
+cd pack-unpack-${VERSION}
 sudo apt-get install -y libarchive-dev build-essential   # or pacman -S libarchive base-devel
-make && sudo make install PREFIX=/usr
+make && sudo make install PREFIX=/usr INSTALL_EXTRACT_ALIAS=0
 \`\`\`
 EOF
 )"
@@ -83,7 +83,7 @@ if "$GH" release view "$TAG" >/dev/null 2>&1; then
     echo "uploaded assets to existing release $TAG"
 else
     "$GH" release create "$TAG" "${UPLOAD_ARGS[@]}" \
-        --title "pack-extract ${VERSION}" \
+        --title "pack-unpack ${VERSION}" \
         --notes "$NOTES"
     echo "created release $TAG"
 fi

@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: pack-extract
+Upstream-Name: pack-unpack
 Upstream-Contact: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
 Source: https://github.com/IRodriguez13/pack-extract
 

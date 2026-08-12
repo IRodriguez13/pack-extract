@@ -1,16 +1,18 @@
 /**
- * extract - Unified extraction tool rewrite in C
+ * unpack - Unified archive extraction tool (C, libarchive)
  * Copyright (C) 2026 Iván Ezequiel Rodriguez
  * License: GPLv3+
  *
- * Usage: extract [-C dir] [-f|-n|-i] <archive>
- * Extracts compressed archives automatically by detecting the format
+ * Usage: unpack [-C dir] [-f|-n|-i] <archive>
+ * Alias: extract (optional symlink; avoid when GNU libextractor owns /usr/bin/extract)
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
+#include <libgen.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -29,14 +31,31 @@ typedef enum
     OVERWRITE_INTERACTIVE
 } OverwriteMode;
 
-static void print_help(void)
+/* Canonical name is unpack; extract is an optional argv0 alias. */
+static const char *prog_name(const char *argv0)
 {
+    const char *base;
+
+    if (!argv0 || argv0[0] == '\0')
+        return "unpack";
+    base = strrchr(argv0, '/');
+    base = base ? base + 1 : argv0;
+    if (strcmp(base, "extract") == 0)
+        return "extract";
+    return "unpack";
+}
+
+static void print_help(const char *argv0)
+{
+    const char *name = prog_name(argv0);
+
     printf(
-        "Usage: extract [-C dir] [-f|-n|-i] <archive>\n"
-        "Extracts compressed archives automatically by detecting the format if supported.\n"
+        "Usage: %s [-C dir] [-f|-n|-i] <archive>\n"
+        "Unpacks compressed archives automatically by detecting the format if supported.\n"
+        "Canonical command: unpack. Optional alias: extract (symlink).\n"
         "\n"
         "Options:\n"
-        "  -C, --directory DIR  Change to DIR before extracting\n"
+        "  -C, --directory DIR  Change to DIR before unpacking\n"
         "  -f, --force          Overwrite existing files without prompting\n"
         "  -n, --no-clobber     Never overwrite; skip existing paths\n"
         "  -i, --interactive    Always prompt before overwrite (requires a tty)\n"
@@ -44,14 +63,15 @@ static void print_help(void)
         "  -h, --help           Show this help message and exit\n"
         "\n"
         "Default overwrite policy: prompt on a tty; refuse conflicts otherwise.\n"
-        "Only one of -f, -n, or -i may be specified.\n"
+        "Only one of -f, -n, or -i may be specified.\n",
+        name
     );
 }
 
-static void print_version(void)
+static void print_version(const char *argv0)
 {
     printf(
-        "extract (pack-extract) %s\n"
+        "%s (pack-unpack) %s\n"
         "Copyright (C) 2026 Iván Ezequiel Rodriguez\n"
         "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n"
         "This is free software: you are free to change and redistribute it.\n"
@@ -60,8 +80,9 @@ static void print_version(void)
         "Source: %s\n"
         "\n"
         "Escrito por Iván Ezequiel Rodriguez.\n",
-        PACK_EXTRACT_VERSION,
-        PACK_EXTRACT_SOURCE_URL
+        prog_name(argv0),
+        PACK_UNPACK_VERSION,
+        PACK_UNPACK_SOURCE_URL
     );
 }
 
@@ -172,7 +193,100 @@ static int resolve_overwrite(OverwriteMode mode, const char *pathname)
     }
 }
 
-static int extract_archive(const char *filename, OverwriteMode mode)
+static int is_raw_archive_format(struct archive *a)
+{
+    int fmt = archive_format(a);
+
+#ifdef ARCHIVE_FORMAT_BASE_MASK
+    return (fmt & ARCHIVE_FORMAT_BASE_MASK) == ARCHIVE_FORMAT_RAW;
+#else
+    return fmt == ARCHIVE_FORMAT_RAW;
+#endif
+}
+
+/*
+ * libarchive RAW members are named "data". Derive a usable name by stripping
+ * a known compression suffix from the archive basename (gunzip-style).
+ */
+static int derive_raw_member_name(const char *archive_path, char *out, size_t outsz)
+{
+    static const char *const suffixes[] = {
+        ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tar.lz4",
+        ".tar.lz", ".tar.lzo", ".tar.br",
+        ".gz", ".bz2", ".xz", ".zst", ".zstd", ".lz4", ".lzo", ".lz", ".br",
+        NULL
+    };
+    char *dup;
+    char *base;
+    size_t blen;
+    const char *const *s;
+
+    if (!archive_path || !out || outsz == 0)
+        return -1;
+
+    dup = strdup(archive_path);
+    if (!dup)
+        return -1;
+    base = basename(dup);
+    blen = strlen(base);
+
+    for (s = suffixes; *s; s++)
+    {
+        size_t slen = strlen(*s);
+
+        if (blen > slen && strcmp(base + blen - slen, *s) == 0)
+        {
+            size_t keep = blen - slen;
+
+            if (keep == 0 || keep >= outsz)
+            {
+                free(dup);
+                return -1;
+            }
+            memcpy(out, base, keep);
+            out[keep] = '\0';
+            free(dup);
+            return 0;
+        }
+    }
+
+    if (blen == 0 || blen >= outsz)
+    {
+        free(dup);
+        return -1;
+    }
+    memcpy(out, base, blen + 1);
+    free(dup);
+    return 0;
+}
+
+/*
+ * Open a reader. raw_only=0 → format_all (no RAW).
+ * raw_only=1 → format_raw only (bare compressed streams).
+ * Combining both lets mtree falsely win on some gzip payloads.
+ */
+static struct archive *open_archive_reader(const char *filename, int raw_only)
+{
+    struct archive *a = archive_read_new();
+
+    if (!a)
+        return NULL;
+
+    archive_read_support_filter_all(a);
+    if (raw_only)
+        archive_read_support_format_raw(a);
+    else
+        archive_read_support_format_all(a);
+
+    if (archive_read_open_filename(a, filename, EXTRACT_BLOCK_SIZE) != ARCHIVE_OK)
+    {
+        archive_read_free(a);
+        return NULL;
+    }
+    return a;
+}
+
+static int unpack_archive(const char *filename, OverwriteMode mode)
 {
     struct archive *a = NULL;
     struct archive *ext = NULL;
@@ -182,21 +296,33 @@ static int extract_archive(const char *filename, OverwriteMode mode)
     int r;
     int status = 1;
     int disk_flags;
+    char raw_name[PATH_MAX];
 
-    a = archive_read_new();
+    a = open_archive_reader(filename, 0);
     if (!a)
     {
-        fprintf(stderr, "Error: Failed to create archive reader\n");
+        fprintf(stderr, "Error: Failed to open archive: %s\n", filename);
         return 1;
     }
 
-    archive_read_support_format_all(a);
-    archive_read_support_filter_all(a);
-
-    if (archive_read_open_filename(a, filename, EXTRACT_BLOCK_SIZE) != ARCHIVE_OK)
+    r = archive_read_next_header(a, &entry);
+    if (r != ARCHIVE_OK)
     {
-        fprintf(stderr, "Error: Failed to open archive: %s\n", archive_error_string(a));
-        goto fail;
+        /* Controlled RAW fallback for single-file compressed streams. */
+        archive_read_free(a);
+        a = open_archive_reader(filename, 1);
+        if (!a)
+        {
+            fprintf(stderr, "Error: Failed to open archive: %s\n", filename);
+            return 1;
+        }
+        r = archive_read_next_header(a, &entry);
+        if (r != ARCHIVE_OK)
+        {
+            fprintf(stderr, "Error: Failed to read archive: %s\n",
+                    archive_error_string(a));
+            goto fail;
+        }
     }
 
     ext = archive_write_disk_new();
@@ -217,13 +343,24 @@ static int extract_archive(const char *filename, OverwriteMode mode)
     archive_write_disk_set_options(ext, disk_flags);
     archive_write_disk_set_standard_lookup(ext);
 
-    while ((r = archive_read_next_header(a, &entry)) == ARCHIVE_OK)
+    do
     {
         const char *pathname = archive_entry_pathname(entry);
         char **new_list;
         const void *buff;
         size_t size;
         la_int64_t offset;
+
+        if (is_raw_archive_format(a))
+        {
+            if (derive_raw_member_name(filename, raw_name, sizeof(raw_name)) != 0)
+            {
+                fprintf(stderr, "Error: Cannot derive output name for raw stream\n");
+                goto fail;
+            }
+            archive_entry_set_pathname(entry, raw_name);
+            pathname = raw_name;
+        }
 
         if (!entry_path_is_safe(pathname))
         {
@@ -251,7 +388,7 @@ static int extract_archive(const char *filename, OverwriteMode mode)
             }
         }
 
-        printf("Extracting: %s\n", pathname);
+        printf("Unpacking: %s\n", pathname);
 
         new_list = realloc(extracted_files, (extracted_count + 1) * sizeof(char *));
         if (!new_list)
@@ -293,7 +430,7 @@ static int extract_archive(const char *filename, OverwriteMode mode)
             fprintf(stderr, "Error: Failed to finish entry: %s\n", archive_error_string(ext));
             goto fail;
         }
-    }
+    } while ((r = archive_read_next_header(a, &entry)) == ARCHIVE_OK);
 
     if (r != ARCHIVE_EOF)
     {
@@ -305,7 +442,7 @@ static int extract_archive(const char *filename, OverwriteMode mode)
     {
         qsort(extracted_files, extracted_count, sizeof(char *), cmp_strptr);
 
-        printf("\nArchive extracted successfully.\nExtract result:\n");
+        printf("\nArchive unpacked successfully.\nUnpack result:\n");
         for (size_t i = 0; i < extracted_count; ++i)
         {
             printf("%s\n", extracted_files[i]);
@@ -318,7 +455,7 @@ static int extract_archive(const char *filename, OverwriteMode mode)
     }
     else
     {
-        printf("Archive extracted successfully\n");
+        printf("Archive unpacked successfully\n");
     }
 
     status = 0;
@@ -348,6 +485,7 @@ int main(int argc, char *argv[])
 {
     const char *filename = NULL;
     const char *chdir_to = NULL;
+    const char *argv0 = argc > 0 ? argv[0] : "unpack";
     OverwriteMode mode = OVERWRITE_DEFAULT;
     int mode_set = 0;
     int i;
@@ -359,12 +497,12 @@ int main(int argc, char *argv[])
     {
         if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0)
         {
-            print_version();
+            print_version(argv0);
             return 0;
         }
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
         {
-            print_help();
+            print_help(argv0);
             return 0;
         }
         if (strcmp(argv[i], "-C") == 0 || strcmp(argv[i], "--directory") == 0)
@@ -413,13 +551,13 @@ int main(int argc, char *argv[])
         if (argv[i][0] == '-' && argv[i][1] != '\0')
         {
             fprintf(stderr, "Error: Unknown option: %s\n", argv[i]);
-            print_help();
+            print_help(argv0);
             return 1;
         }
         if (filename)
         {
             fprintf(stderr, "Error: Unexpected argument: %s\n", argv[i]);
-            print_help();
+            print_help(argv0);
             return 1;
         }
         filename = argv[i];
@@ -427,7 +565,7 @@ int main(int argc, char *argv[])
 
     if (!filename)
     {
-        print_help();
+        print_help(argv0);
         return 1;
     }
 
@@ -460,7 +598,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    status = extract_archive(archive_abs, mode);
+    status = unpack_archive(archive_abs, mode);
     free(archive_abs);
     return status;
 }

@@ -1,4 +1,5 @@
-pack-extract — pack and extract utilities
+pack-unpack — pack and unpack utilities
+(optional local alias: extract → unpack)
 Copyright (C) 2026 Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
 
 This program is free software: you can redistribute it and/or modify

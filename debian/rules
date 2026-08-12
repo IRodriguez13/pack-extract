@@ -10,7 +10,8 @@ override_dh_auto_build:
 	$(MAKE) all
 
 override_dh_auto_install:
-	$(MAKE) install PREFIX=/usr DESTDIR=$(CURDIR)/debian/pack-extract
+	# No extract alias in the .deb — avoids clashing with libextractor.
+	$(MAKE) install PREFIX=/usr DESTDIR=$(CURDIR)/debian/pack-unpack INSTALL_EXTRACT_ALIAS=0
 
 override_dh_auto_test:
 	$(MAKE) check

@@ -1,6 +1,6 @@
-# bash completion for extract(1) — optional alias of unpack(1) -*- shell-script -*-
+# bash completion for unpack(1) -*- shell-script -*-
 
-_extract()
+_unpack()
 {
     local cur prev words cword
     _init_completion || return
@@ -26,6 +26,6 @@ _extract()
     compopt -o filenames 2>/dev/null
     COMPREPLY=( $( compgen -f -- "$cur" ) )
 } &&
-    complete -F _extract extract
+    complete -F _unpack unpack
 
 # ex: filetype=sh

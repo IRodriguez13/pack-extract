@@ -56,14 +56,15 @@ static const PackFormat formats[] = {
 #if defined(ARCHIVE_FILTER_BROTLI)
     {"tar.br",  ARCHIVE_FORMAT_TAR, ARCHIVE_FILTER_BROTLI},
 #endif
-    {"gz",      ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_GZIP},
-    {"bz2",     ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_BZIP2},
-    {"xz",      ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_XZ},
-    {"zstd",    ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_ZSTD},
-    {"lz4",     ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_LZ4},
-    {"lzo",     ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_LZOP},
+    /* Single-file streams: RAW container + compression filter (EMPTY has no writer). */
+    {"gz",      ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_GZIP},
+    {"bz2",     ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_BZIP2},
+    {"xz",      ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_XZ},
+    {"zstd",    ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_ZSTD},
+    {"lz4",     ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_LZ4},
+    {"lzo",     ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_LZOP},
 #if defined(ARCHIVE_FILTER_BROTLI)
-    {"br",      ARCHIVE_FORMAT_EMPTY, ARCHIVE_FILTER_BROTLI},
+    {"br",      ARCHIVE_FORMAT_RAW, ARCHIVE_FILTER_BROTLI},
 #endif
     {"zip",     ARCHIVE_FORMAT_ZIP, 0},
     {"7z",      ARCHIVE_FORMAT_7ZIP, 0},
@@ -92,7 +93,7 @@ static void print_help(void)
 static void print_version(void)
 {
     printf(
-        "pack (pack-extract) %s\n"
+        "pack (pack-unpack) %s\n"
         "Copyright (C) 2026 Iván Ezequiel Rodriguez\n"
         "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n"
         "This is free software: you are free to change and redistribute it.\n"
@@ -101,8 +102,8 @@ static void print_version(void)
         "Source: %s\n"
         "\n"
         "Escrito por Iván Ezequiel Rodriguez.\n",
-        PACK_EXTRACT_VERSION,
-        PACK_EXTRACT_SOURCE_URL
+        PACK_UNPACK_VERSION,
+        PACK_UNPACK_SOURCE_URL
     );
 }
 
@@ -155,6 +156,89 @@ static int hardlink_remember(HardlinkMap *map, dev_t dev, ino_t ino, const char 
     return 0;
 }
 
+/*
+ * Absolute path for comparison. Works when the final component does not exist
+ * yet (resolves the parent directory).
+ */
+static int abs_path(const char *path, char *out, size_t outsz)
+{
+    char *rp;
+    char *dir_copy = NULL;
+    char *base_copy = NULL;
+    char *dir;
+    char *base;
+    char dir_real[PATH_MAX];
+    int n;
+
+    if (!path || !out || outsz == 0)
+        return -1;
+
+    rp = realpath(path, NULL);
+    if (rp)
+    {
+        if (strlen(rp) >= outsz)
+        {
+            free(rp);
+            return -1;
+        }
+        memcpy(out, rp, strlen(rp) + 1);
+        free(rp);
+        return 0;
+    }
+
+    dir_copy = strdup(path);
+    base_copy = strdup(path);
+    if (!dir_copy || !base_copy)
+    {
+        free(dir_copy);
+        free(base_copy);
+        return -1;
+    }
+    dir = dirname(dir_copy);
+    base = basename(base_copy);
+    if (!realpath(dir, dir_real))
+    {
+        free(dir_copy);
+        free(base_copy);
+        return -1;
+    }
+    n = snprintf(out, outsz, "%s/%s", dir_real, base);
+    free(dir_copy);
+    free(base_copy);
+    if (n < 0 || (size_t)n >= outsz)
+        return -1;
+    return 0;
+}
+
+/* Refuse opening output when it would truncate a source path. */
+static int output_is_source_path(const char *output, char **sources, int nsources)
+{
+    char out_abs[PATH_MAX];
+    int i;
+
+    if (abs_path(output, out_abs, sizeof(out_abs)) != 0)
+    {
+        fprintf(stderr, "Error: Cannot resolve output path: %s\n", output);
+        return -1;
+    }
+
+    for (i = 0; i < nsources; i++)
+    {
+        char src_abs[PATH_MAX];
+
+        if (!realpath(sources[i], src_abs))
+            continue;
+        if (strcmp(out_abs, src_abs) == 0)
+        {
+            fprintf(stderr,
+                    "Error: Output '%s' is the same as source '%s'\n",
+                    output, sources[i]);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* basename of path without mutating caller's buffer; strips trailing slashes. */
 static int archive_root_name(const char *path, char *out, size_t outsz)
 {
@@ -194,6 +278,7 @@ static int archive_root_name(const char *path, char *out, size_t outsz)
     return 0;
 }
 
+/* Returns 0 = ok, -1 = error. */
 static int write_header_checked(struct archive *a, struct archive_entry *entry)
 {
     int r = archive_write_header(a, entry);
@@ -257,7 +342,8 @@ static int write_file_data(struct archive *a, const char *fs_path, la_int64_t si
 }
 
 static int add_to_archive(struct archive *a, const char *fs_path,
-                          const char *archive_path, HardlinkMap *hl)
+                          const char *archive_path, HardlinkMap *hl,
+                          int have_skip, dev_t skip_dev, ino_t skip_ino)
 {
     struct stat st;
     struct archive_entry *entry;
@@ -269,6 +355,10 @@ static int add_to_archive(struct archive *a, const char *fs_path,
         fprintf(stderr, "Error: Cannot stat %s: %s\n", fs_path, strerror(errno));
         return -1;
     }
+
+    /* Skip the output archive itself (do not call write_header — that wedges libarchive). */
+    if (have_skip && st.st_dev == skip_dev && st.st_ino == skip_ino)
+        return 0;
 
     entry = archive_entry_new();
     if (!entry)
@@ -344,7 +434,7 @@ static int add_to_archive(struct archive *a, const char *fs_path,
                 closedir(dir);
                 return -1;
             }
-            if (add_to_archive(a, subpath, subbase, hl) != 0)
+            if (add_to_archive(a, subpath, subbase, hl, have_skip, skip_dev, skip_ino) != 0)
             {
                 closedir(dir);
                 return -1;
@@ -356,12 +446,10 @@ static int add_to_archive(struct archive *a, const char *fs_path,
 
     if (!S_ISREG(st.st_mode))
     {
-        /* Skip sockets, devices, fifos, etc. */
         archive_entry_free(entry);
         return 0;
     }
 
-    /* Regular file — hardlink if seen before */
     if (st.st_nlink > 1)
     {
         prev = hardlink_lookup(hl, st.st_dev, st.st_ino);
@@ -475,7 +563,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (fmt->format_id == ARCHIVE_FORMAT_EMPTY)
+    if (fmt->format_id == ARCHIVE_FORMAT_RAW)
     {
         struct stat st;
 
@@ -526,6 +614,13 @@ int main(int argc, char *argv[])
         output = output_buf;
     }
 
+    {
+        int clash = output_is_source_path(output, sources, nsources);
+
+        if (clash != 0)
+            return 1;
+    }
+
     a = archive_write_new();
     if (!a)
     {
@@ -553,14 +648,36 @@ int main(int argc, char *argv[])
         goto fail;
     }
 
-    for (i = 0; i < nsources; i++)
+    /* Do not archive the output file if it sits inside a packed directory tree. */
     {
-        char root[PATH_MAX];
+        struct stat out_st;
+        int have_skip = 0;
+        dev_t skip_dev = 0;
+        ino_t skip_ino = 0;
 
-        if (archive_root_name(sources[i], root, sizeof(root)) != 0)
+        if (stat(output, &out_st) != 0)
+        {
+            fprintf(stderr, "Error: Cannot stat output %s: %s\n", output, strerror(errno));
             goto fail;
-        if (add_to_archive(a, sources[i], root, &hl) != 0)
+        }
+        if (archive_write_set_skip_file(a, out_st.st_dev, out_st.st_ino) != ARCHIVE_OK)
+        {
+            fprintf(stderr, "Error: Failed to set skip_file: %s\n", archive_error_string(a));
             goto fail;
+        }
+        have_skip = 1;
+        skip_dev = out_st.st_dev;
+        skip_ino = out_st.st_ino;
+
+        for (i = 0; i < nsources; i++)
+        {
+            char root[PATH_MAX];
+
+            if (archive_root_name(sources[i], root, sizeof(root)) != 0)
+                goto fail;
+            if (add_to_archive(a, sources[i], root, &hl, have_skip, skip_dev, skip_ino) != 0)
+                goto fail;
+        }
     }
 
     if (archive_write_close(a) != ARCHIVE_OK)

@@ -1,40 +1,42 @@
-# Pack / Extract Utilities
+# Pack / Unpack Utilities
 
 Simple utilities for compressing and extracting files without having to remember flags or specific formats.
 
 The objective is to unify the most common workflow:
 
-- Extract anything
+- Unpack anything
 - Package in the format of your choice
 
 Implemented in **C** with [libarchive](https://www.libarchive.org/). Format detection and I/O go through libarchive (no per-format CLI flags).
 
-## extract
+## unpack
 
-Automatically extracts compressed archives by detecting the format.
+Automatically unpacks compressed archives by detecting the format.
 
 ### Usage
 ```bash
-extract [-C dir] [-f|-n|-i] <archive>
-extract --version
-extract --help
+unpack [-C dir] [-f|-n|-i] <archive>
+unpack --version
+unpack --help
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `-C DIR` | Change to `DIR` before extracting |
+| `-C DIR` | Change to `DIR` before unpacking |
 | `-f` | Force overwrite |
 | `-n` | Never overwrite (skip) |
 | `-i` | Always prompt (needs a tty) |
 
 Default overwrite policy: prompt on a tty; refuse conflicts when non-interactive. Only one of `-f`/`-n`/`-i` may be used.
 
+Local installs may also provide `extract` as a symlink to `unpack` (`INSTALL_EXTRACT_ALIAS=1`). Distro packages omit that alias to avoid clashing with GNU libextractor.
+
 ### Examples
 ```bash
-extract backup.tar.gz
-extract -C /tmp/out project.zip
-extract -n data.7z
-extract -f logs.tar.xz
+unpack backup.tar.gz
+unpack -C /tmp/out project.zip
+unpack -n data.7z
+unpack -f logs.tar.xz
 ```
 
 ### Supported formats (via libarchive)
@@ -47,7 +49,7 @@ Archives and compressed streams that libarchive can read, including:
 | single-file | `.gz`, `.xz`, `.bz2`, `.zst`, `.lz4`, `.lzo`, `.br` |
 | archive | `.zip`, `.7z`, and others supported by the linked libarchive |
 
-Content is extracted to the current directory (or `-C`). Absolute paths and `..` components are rejected; libarchive `SECURE_*` extraction flags are enabled (symlink escape, absolute paths, `..`). See [`Documentation/CLI.md`](Documentation/CLI.md).
+Content is unpacked to the current directory (or `-C`). Absolute paths and `..` components are rejected; libarchive `SECURE_*` extraction flags are enabled (symlink escape, absolute paths, `..`). See [`Documentation/CLI.md`](Documentation/CLI.md).
 
 ## pack
 
@@ -112,19 +114,19 @@ Prefer a **prebuilt** package so you do not need a compiler.
 ### Debian / Ubuntu (`.deb`, no compile)
 
 ```bash
-VER=1.5.5
-wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-extract_${VER}-1_amd64.deb"
-sudo apt install "./pack-extract_${VER}-1_amd64.deb"
-pack --version && extract --version
+VER=1.5.6
+wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-unpack_${VER}-1_amd64.deb"
+sudo apt install "./pack-unpack_${VER}-1_amd64.deb"
+pack --version && unpack --version
 ```
 
 ### Generic Linux (binary tarball, no compile)
 
 ```bash
-VER=1.5.5
-wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-extract-${VER}-linux-amd64.tar.gz"
-tar -xzf "pack-extract-${VER}-linux-amd64.tar.gz"
-cd "pack-extract-${VER}-linux-amd64"
+VER=1.5.6
+wget "https://github.com/IRodriguez13/pack-extract/releases/download/v${VER}/pack-unpack-${VER}-linux-amd64.tar.gz"
+tar -xzf "pack-unpack-${VER}-linux-amd64.tar.gz"
+cd "pack-unpack-${VER}-linux-amd64"
 ./install.sh          # ~/.local/bin
 # sudo ./install.sh   # /usr
 ```
@@ -135,14 +137,14 @@ Runtime: system `libarchive` (`sudo apt install libarchive13` or distro equivale
 
 | Package | Compile? | Notes |
 |---------|----------|--------|
-| `pack-extract-bin` | No | Prebuilt from GitHub Releases (`aur/pack-extract-bin/PKGBUILD`) |
-| `pack-extract` | Yes | Source build (`PKGBUILD` at repo root) |
+| `pack-unpack-bin` | No | Prebuilt from GitHub Releases (`aur/pack-unpack-bin/PKGBUILD`) |
+| `pack-unpack` | Yes | Source build (`PKGBUILD` at repo root) |
 
 ```bash
 # after packages are on AUR:
-yay -S pack-extract-bin
+yay -S pack-unpack-bin
 # or from a clone of this repo:
-cd aur/pack-extract-bin && makepkg -si
+cd aur/pack-unpack-bin && makepkg -si
 ```
 
 ### From source
@@ -163,14 +165,14 @@ Packaging notes: [`docs/PACKAGING.md`](docs/PACKAGING.md). CLI contract: [`Docum
 Verify ELF binaries:
 
 ```bash
-file "$(command -v extract)"
-extract --version
+file "$(command -v unpack)"
+unpack --version
 ```
 
 Man pages:
 
 ```bash
-man extract
+man unpack
 man pack
 ```
 
@@ -184,5 +186,5 @@ man pack
 
 - Designed for local and manual use
 - Not a replacement for advanced archiving tools (`7z` GUI, encrypted volumes, etc.)
-- Binary names remain `pack` and `extract` (generic; see packaging notes if packaging for Debian official)
-- Clear errors and a sorted list of extracted paths on success
+- Canonical binaries are `pack` and `unpack` (`extract` is an optional local alias) (generic; see packaging notes if packaging for Debian official)
+- Clear errors and a sorted list of unpacked paths on success

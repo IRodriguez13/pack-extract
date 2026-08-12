@@ -1,0 +1,24 @@
+# Maintainer: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
+# shellcheck disable=SC2034,SC2154
+# Prebuilt binaries from GitHub Releases — no compile step.
+pkgname=pack-unpack-bin
+pkgver=1.5.6
+pkgrel=1
+pkgdesc="Create and unpack archives via libarchive (prebuilt pack/unpack)"
+arch=('x86_64')
+url="https://github.com/IRodriguez13/pack-extract"
+license=('GPL-3.0-or-later')
+depends=('libarchive')
+provides=('pack-unpack')
+conflicts=('pack-unpack')
+options=('!strip')
+source=("pack-unpack-${pkgver}-linux-amd64.tar.gz::${url}/releases/download/v${pkgver}/pack-unpack-${pkgver}-linux-amd64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  cd "pack-unpack-${pkgver}-linux-amd64"
+  install -Dm755 bin/pack "${pkgdir}/usr/bin/pack"
+  install -Dm755 bin/unpack "${pkgdir}/usr/bin/unpack"
+  install -Dm644 share/man/man1/pack.1 "${pkgdir}/usr/share/man/man1/pack.1"
+  install -Dm644 share/man/man1/unpack.1 "${pkgdir}/usr/share/man/man1/unpack.1"
+}

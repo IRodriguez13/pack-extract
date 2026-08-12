@@ -1,0 +1,156 @@
+.TH UNPACK 1 "August 2026" "pack-unpack 1.5.6" "User Commands"
+.SH NAME
+unpack \- automatically unpack compressed archives
+.PP
+Optional compatibility alias:
+.BR extract (1)
+(symlink to unpack; omit on systems where GNU libextractor owns
+.BR /usr/bin/extract ).
+.SH SYNOPSIS
+.B unpack
+.RB [ \-v | \-\-version ]
+.br
+.B unpack
+.RB [ \-h | \-\-help ]
+.br
+.B unpack
+.RB [ \-C
+.IR dir ]
+.RB [ \-f | \-n | \-i ]
+.I archive
+.SH DESCRIPTION
+.B unpack
+opens
+.I archive
+with
+.BR libarchive (3)
+(all supported formats and filters) and writes members into the current
+directory (or into
+.I dir
+when
+.B \-C
+is given). After a successful extraction it prints a sorted list of
+extracted paths.
+.PP
+Absolute member paths and path components equal to
+.B ..
+are rejected in software. Extraction also enables libarchive's
+.BR ARCHIVE_EXTRACT_SECURE_SYMLINKS ,
+.BR ARCHIVE_EXTRACT_SECURE_NODOTDOT ,
+and
+.B ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS
+options so a symlink on disk cannot redirect writes outside the extract
+tree.
+.PP
+Default overwrite policy: if a member path already exists,
+.B unpack
+asks whether to overwrite
+.RB ( y / N )
+when stdin and stdout are a tty; otherwise a conflict aborts with an error.
+Answer
+.B n
+(or Enter) to skip that member.
+.B Ctrl+C
+cancels the whole extraction.
+Existing directories that match a directory member are merged without prompting.
+.SH OPTIONS
+.TP
+.BI \-C " dir\fR, \fB\-\-directory " dir
+Change to
+.I dir
+before extracting. A relative
+.I archive
+path is resolved before the directory change.
+.TP
+.B \-f, \-\-force
+Overwrite existing files without prompting.
+.TP
+.B \-n, \-\-no\-clobber
+Never overwrite; skip members whose paths already exist.
+.TP
+.B \-i, \-\-interactive
+Always prompt before overwrite (requires a tty; non-tty conflicts still abort).
+.TP
+.B \-v, \-\-version
+Display version information and exit.
+.TP
+.B \-h, \-\-help
+Display help message and exit.
+.PP
+Only one of
+.BR \-f ,
+.BR \-n ,
+or
+.B \-i
+may be specified.
+.SH SUPPORTED FORMATS
+Anything
+.B libarchive
+can read with
+.B archive_read_support_format_all
+plus a controlled
+.B archive_read_support_format_raw
+fallback when the first header is not recognized
+(needed for single-file compressed streams such as
+.BR .gz / .xz / .zstd ;
+raw is omitted from
+.BR support_format_all ,
+and enabling it together with all formats can mis-bid)
+and
+.B archive_read_support_filter_all
+on the build host, typically including tar (with gzip, xz, bzip2, zstd,
+lz4, lzip, lzop, brotli when available), zip, 7z, cpio, and common
+single-file compression streams.
+.PP
+For RAW streams, the member is often named
+.B data
+internally; extract renames it by stripping a known compression suffix from
+the archive basename.
+.PP
+Exact coverage depends on how
+.B libarchive
+was built (optional codecs).
+.SH EXAMPLES
+Extract a gzip-compressed tarball:
+.PP
+.RS
+.nf
+$ unpack backup.tar.gz
+.fi
+.RE
+.PP
+Extract into a directory, forcing overwrite:
+.PP
+.RS
+.nf
+$ unpack \-C /tmp/out \-f project.zip
+.fi
+.RE
+.PP
+Extract without clobbering existing files:
+.PP
+.RS
+.nf
+$ unpack \-n data.7z
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Successful extraction.
+.TP
+.B 1
+An error occurred (file not found, unsafe path, secure-symlink refusal,
+unsupported or corrupt archive, I/O failure).
+.SH DEPENDENCIES
+.B unpack
+links against
+.BR libarchive (3).
+Build requires the libarchive development package and
+.BR pkg-config (1).
+.SH SEE ALSO
+.BR pack (1),
+.BR extract (1),
+.BR libarchive (3)
+.SH AUTHORS
+Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>

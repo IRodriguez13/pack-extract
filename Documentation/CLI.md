@@ -1,20 +1,33 @@
-# pack / extract — CLI and security contract
+# pack / unpack — CLI and security contract
 
 > **Última verificación:** 2026-08-11
-> **Fuente de verdad:** [`pack.c`](../pack.c), [`extract.c`](../extract.c), [`tests/smoke-test.sh`](../tests/smoke-test.sh)
+> **Fuente de verdad:** [`pack.c`](../pack.c), [`unpack.c`](../unpack.c), [`tests/smoke-test.sh`](../tests/smoke-test.sh)
 
 ## Interface
 
 ```text
-pack  [-o output] <format> <source> [source...]
-extract [-C dir] [-f|-n|-i] <archive>
+pack   [-o output] <format> <source> [source...]
+unpack [-C dir] [-f|-n|-i] <archive>
 ```
 
-Small, semantic verbs: **pack** creates; **extract** consumes. Format detection on extract is delegated to libarchive (`archive_read_support_format_all` / `support_filter_all`).
+Canonical verbs: **pack** creates; **unpack** consumes. Optional compatibility alias: **extract** → same binary as `unpack` (argv0-aware help/version). Distro packages omit the `extract` symlink so they do not clash with GNU libextractor.
+
+Format detection on unpack uses libarchive `archive_read_support_format_all` first, then a **controlled RAW-only retry** when the first header fails (needed for `gz`/`xz`/`zstd`/… because `support_format_all` omits RAW, and enabling both at once can let mtree falsely bid).
+
+## Single-file formats
+
+`pack` writes them as `ARCHIVE_FORMAT_RAW` plus a compression filter (`ARCHIVE_FORMAT_EMPTY` has no writer). On unpack, RAW members named `data` are renamed by stripping a known suffix from the archive basename (`foo.txt.gz` → `foo.txt`).
+
+## Output safety (pack)
+
+| Guard | Behavior |
+|-------|----------|
+| Same path | Refuse `pack -o foo … foo` before open (would truncate the source) |
+| Archive in tree | After open, `archive_write_set_skip_file(dev, ino)` plus a pre-header `dev`/`ino` skip so walking a directory that contains the output does not nest the archive inside itself |
 
 ## Round-trip invariant
 
-Everything `pack` produces with normal options must be consumable by `extract`:
+Everything `pack` produces with normal options must be consumable by `unpack`:
 
 | Rule | Behavior |
 |------|----------|
@@ -24,7 +37,7 @@ Everything `pack` produces with normal options must be consumable by `extract`:
 | Hardlinks | Same `(st_dev, st_ino)` recorded as hardlink when the format supports it |
 | Absolute sources | Allowed as input; stored without a leading `/` |
 
-## extract security
+## unpack security
 
 Defense in depth:
 
@@ -33,8 +46,6 @@ Defense in depth:
    - `ARCHIVE_EXTRACT_SECURE_SYMLINKS`
    - `ARCHIVE_EXTRACT_SECURE_NODOTDOT`
    - `ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS`
-
-Textual pathname checks do **not** replace filesystem-level symlink redirection checks.
 
 ### Overwrite policy
 
@@ -45,7 +56,7 @@ Textual pathname checks do **not** replace filesystem-level symlink redirection 
 | No-clobber | `-n` / `--no-clobber` | Skip existing paths |
 | Interactive | `-i` / `--interactive` | Always prompt (still refuses on non-TTY) |
 
-Only one of `-f`, `-n`, `-i` may be set. `-C DIR` changes directory before extraction; relative archive paths are resolved with `realpath` first.
+Only one of `-f`, `-n`, `-i` may be set. `-C DIR` changes directory before unpacking; relative archive paths are resolved with `realpath` first.
 
 **Note:** With `-f`, libarchive may unlink an intermediate symlink instead of aborting (`UNLINK` + `SECURE_SYMLINKS`). For untrusted archives prefer the default (no `-f`).
 
@@ -59,4 +70,12 @@ Only one of `-f`, `-n`, `-i` may be set. `-C DIR` changes directory before extra
 make clean all check
 ```
 
-Smoke coverage includes format round-trips, directory trees, absolute sources, symlink preservation, overwrite flags, `-C`, zip-slip rejection, and symlink-escape refusal.
+Smoke coverage includes format round-trips (archives **and** single-file `gz`/`xz`/`zstd`), directory trees, absolute sources, symlink preservation, overwrite flags, `-C`, zip-slip rejection, symlink-escape refusal, output==source refusal, skip_file self-archive exclusion, and the `extract` argv0 alias.
+
+## Namespace
+
+| Name | Role |
+|------|------|
+| `unpack` | Canonical command (always installed) |
+| `extract` | Optional symlink/alias (`INSTALL_EXTRACT_ALIAS=1`); omitted from Debian/AUR packages |
+| GNU libextractor `extract` | Unrelated metadata tool — distro packages avoid shipping our alias |

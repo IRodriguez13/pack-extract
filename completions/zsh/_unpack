@@ -1,7 +1,7 @@
-#compdef extract
-# zsh completion for extract(1) — optional alias of unpack(1)
+#compdef unpack
+# zsh completion for unpack(1)
 
-_extract() {
+_unpack() {
     _arguments -s \
         '(-v --version)'{-v,--version}'[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help message]' \
@@ -12,4 +12,4 @@ _extract() {
         '1:archive file:_files -g "*.{tar,tar.gz,tgz,tar.xz,txz,tar.bz2,tbz2,tar.zst,tzst,tar.lz4,tlz4,tar.lz,tlzo,tar.br,tbr,gz,xz,bz2,zst,zstd,lz4,lzo,br,zip,7z,rar,cpio}"'
 }
 
-_extract "$@"
+_unpack "$@"
