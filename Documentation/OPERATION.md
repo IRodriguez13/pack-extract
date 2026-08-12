@@ -23,9 +23,9 @@ unpack [-v] [-C DIR] [-f|-n|-i] ARCHIVE
 4. Symlinks y hardlinks preservados en tar.
 5. FIFO en árbol → error (no archive “exitoso” incompleto).
 6. Output==source rechazado; write atómico no trunca hardlink del destino.
-7. unpack: zip-slip y symlink-escape rechazados; `-n`/`-f`/default no-TTY según [`TESTING.md`](TESTING.md).
+7. unpack: zip-slip, symlink-escape y hardlink absoluto/`..` rechazados; `-n`/`-f`/default no-TTY; `unpack -- -file.tar`; corrupt tar.gz no cae a RAW.
 8. Sparse: contenido round-trip cuando el FS crea hueco (sin claim de holes en el archive).
-
+9. Layout: fuentes en `src/`; `pack --help` lista formatos desde la tabla compilada.
 ## Build / install
 
 ```bash

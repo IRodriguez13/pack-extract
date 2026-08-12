@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Iván Ezequiel Rodriguez
  * License: GPLv3+
  *
- * Usage: pack [-v] [-o output] <format> <source> [source...]
+ * Usage: pack [-v] [-o output] [--] <format> <source> [source...]
  *   format: tar, tar.gz, tar.xz, tar.bz2, tar.zst, zip, 7z, ...
  *   source: file or directory to pack (archive pathnames are always relative)
  *   -o:    output filename (optional; default basename(first).format)
@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <archive.h>
@@ -74,18 +75,34 @@ static const PackFormat formats[] = {
     {NULL, 0, 0}
 };
 
+static void print_formats_help(void)
+{
+    const PackFormat *f;
+    int col = 0;
+
+    printf("Supported formats (this build):\n ");
+    for (f = formats; f->format; f++)
+    {
+        if (col > 0 && col % 8 == 0)
+            printf("\n ");
+        printf(" %s", f->format);
+        col++;
+    }
+    printf("\n");
+    printf("  (single-file streams: gz/bz2/xz/zstd/… require one regular file)\n");
+}
+
 static void print_help(void)
 {
     printf(
-        "Usage: pack [-v] [-o output] <format> <source> [source...]\n"
+        "Usage: pack [-v] [-o output] [--] <format> <source> [source...]\n"
         "Packs files or directories into the specified format.\n"
         "Archive member paths are always relative (basename of each source).\n"
         "Success is silent; use -v to list members as they are packed.\n"
         "\n"
-        "Supported formats:\n"
-        "  tar, tar.gz, tar.xz, tar.bz2, tar.zst, tar.lz4, tar.lz, tar.lzo, tar.br\n"
-        "  zip, 7z\n"
-        "  gz, bz2, xz, zstd, lz4, lzo, br  (single file only)\n"
+    );
+    print_formats_help();
+    printf(
         "\n"
         "Options:\n"
         "  -o, --output FILE  Output archive path (default: <basename>.<format>)\n"
@@ -764,6 +781,7 @@ int main(int argc, char *argv[])
     char **sources = NULL;
     int nsources = 0;
     int i;
+    int c;
     const PackFormat *fmt = NULL;
     struct archive *a = NULL;
     HardlinkMap hl = {NULL};
@@ -775,56 +793,50 @@ int main(int argc, char *argv[])
     int status = 1;
     char *skip_path_abs = NULL;
 
-    for (i = 1; i < argc; i++)
+    static const struct option longopts[] = {
+        {"output", required_argument, NULL, 'o'},
+        {"verbose", no_argument, NULL, 'v'},
+        {"version", no_argument, NULL, 1},
+        {"help", no_argument, NULL, 'h'},
+        {NULL, 0, NULL, 0}
+    };
+
+    while ((c = getopt_long(argc, argv, "o:vh", longopts, NULL)) != -1)
     {
-        if (strcmp(argv[i], "--version") == 0)
+        switch (c)
         {
+        case 1:
             print_version();
             return 0;
-        }
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
-        {
+        case 'h':
             print_help();
             return 0;
-        }
-        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
-        {
+        case 'v':
             g_verbose = 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0)
-        {
-            if (i + 1 >= argc)
-            {
-                fprintf(stderr, "Error: %s requires an argument\n", argv[i]);
-                return 1;
-            }
-            output_opt = argv[++i];
-            continue;
-        }
-        if (argv[i][0] == '-' && argv[i][1] != '\0')
-        {
-            fprintf(stderr, "Error: Unknown option: %s\n", argv[i]);
+            break;
+        case 'o':
+            output_opt = optarg;
+            break;
+        default:
             print_help();
             return 1;
         }
-        break;
     }
 
-    if (i >= argc)
+    if (optind >= argc)
     {
         print_help();
         return 1;
     }
-    format = argv[i++];
-    if (i >= argc)
+    format = argv[optind++];
+    if (optind >= argc)
     {
         print_help();
         return 1;
     }
 
-    sources = &argv[i];
-    nsources = argc - i;
+    sources = &argv[optind];
+    nsources = argc - optind;
 
     for (fmt = formats; fmt->format; ++fmt)
     {

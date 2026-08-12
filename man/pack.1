@@ -1,4 +1,4 @@
-.TH PACK 1 "August 2026" "pack-unpack 1.6.0" "User Commands"
+.TH PACK 1 "August 2026" "pack-unpack 1.6.1" "User Commands"
 .SH NAME
 pack \- create compressed archives in the specified format
 .SH SYNOPSIS
@@ -12,6 +12,7 @@ pack \- create compressed archives in the specified format
 .RB [ \-v | \-\-verbose ]
 .RB [ \-o
 .IR output ]
+.RB [ \-\- ]
 .I format
 .I source
 .RI [ source... ]
@@ -86,7 +87,14 @@ Display version information and exit.
 .TP
 .B \-h, \-\-help
 Display help message and exit.
+.TP
+.B \-\-
+End of options; following arguments are operands.
 .SH SUPPORTED FORMATS
+The formats listed by
+.B pack \-\-help
+are generated from the compiled format table for this build
+(optional codecs such as brotli appear only when available at compile time).
 .SS Archive formats (files and directories)
 .TS
 l l l.

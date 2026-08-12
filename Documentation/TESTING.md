@@ -1,7 +1,7 @@
 # pack-unpack — regression coverage (verified behavior)
 
 > **Última verificación:** 2026-08-12
-> **Fuente de verdad:** [`tests/run.sh`](../tests/run.sh), scripts bajo [`tests/pack/`](../tests/pack/), [`tests/unpack/`](../tests/unpack/); código [`pack.c`](../pack.c), [`unpack.c`](../unpack.c)
+> **Fuente de verdad:** [`tests/run.sh`](../tests/run.sh), scripts bajo [`tests/pack/`](../tests/pack/), [`tests/unpack/`](../tests/unpack/); código [`src/pack.c`](../src/pack.c), [`src/unpack.c`](../src/unpack.c)
 
 Solo se documentan propiedades ejercidas por `make check`. Afirmaciones no cubiertas por un script quedan fuera de esta tabla.
 
@@ -32,6 +32,9 @@ Harness: `tests/run.sh` (también `tests/smoke-test.sh` → delega al harness).
 | [`unpack/overwrite.sh`](../tests/unpack/overwrite.sh) | Default no-TTY rechaza conflicto; `-n` no pisa; `-f` pisa |
 | [`unpack/security.sh`](../tests/unpack/security.sh) | Zip-slip `/` y `..` rechazados; escape por symlink → fallo y no crea `/tmp/pwned-pack-unpack` |
 | [`unpack/chdir-alias.sh`](../tests/unpack/chdir-alias.sh) | `-C` extrae en el directorio indicado; argv0 `extract` + `--version` |
+| [`unpack/end-of-options.sh`](../tests/unpack/end-of-options.sh) | `unpack -- -archive.tar` funciona; sin `--` un nombre `-…` se rechaza como opción |
+| [`unpack/corrupt-container.sh`](../tests/unpack/corrupt-container.sh) | `tar.gz` con tar truncado falla; no produce miembro RAW |
+| [`unpack/hardlink-security.sh`](../tests/unpack/hardlink-security.sh) | Hardlink absoluto o `../…` rechazado |
 
 ## CI (workflow)
 

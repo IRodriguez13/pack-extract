@@ -10,7 +10,7 @@ Automatically unpacks compressed archives by detecting the format.
 
 ### Usage
 ```bash
-unpack [-v] [-C dir] [-f|-n|-i] <archive>
+unpack [-v] [-p] [-C dir] [-f|-n|-i] [--] <archive>
 unpack --version
 unpack --help
 ```
@@ -18,13 +18,13 @@ unpack --help
 | Flag | Meaning |
 |------|---------|
 | `-v` | List members as they are unpacked |
+| `-p` | Preserve full mode/ACL/flags (default: mtime + umask) |
 | `-C DIR` | Change to `DIR` before unpacking |
 | `-f` | Force overwrite |
 | `-n` | Never overwrite (skip) |
 | `-i` | Always prompt (needs a tty) |
 | `--version` | Show version (not `-v`) |
-
-Default overwrite policy: prompt when stdin and stderr are a tty; refuse conflicts when non-interactive. Only one of `-f`/`-n`/`-i` may be used.
+| `--` | End of options |
 
 Local installs may also provide `extract` as a symlink to `unpack` (`INSTALL_EXTRACT_ALIAS=1`). Distro packages omit that alias to avoid clashing with GNU libextractor.
 
@@ -111,7 +111,7 @@ Prefer a **prebuilt** package so you do not need a compiler.
 ### Debian / Ubuntu (`.deb`, no compile)
 
 ```bash
-VER=1.6.0
+VER=1.6.1
 wget "https://github.com/IRodriguez13/pack-unpack/releases/download/v${VER}/pack-unpack_${VER}-1_amd64.deb"
 sudo apt install "./pack-unpack_${VER}-1_amd64.deb"
 pack --version && unpack --version
@@ -120,7 +120,7 @@ pack --version && unpack --version
 ### Generic Linux (binary tarball, no compile)
 
 ```bash
-VER=1.6.0
+VER=1.6.1
 wget "https://github.com/IRodriguez13/pack-unpack/releases/download/v${VER}/pack-unpack-${VER}-linux-amd64.tar.gz"
 tar -xzf "pack-unpack-${VER}-linux-amd64.tar.gz"
 cd "pack-unpack-${VER}-linux-amd64"

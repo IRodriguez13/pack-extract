@@ -21,8 +21,8 @@ LDLIBS ?= $(ARCHIVE_LIBS)
 BUILD_DIR = build
 PACK = $(BUILD_DIR)/pack
 UNPACK = $(BUILD_DIR)/unpack
-PACK_SRC = pack.c
-UNPACK_SRC = unpack.c
+PACK_SRC = src/pack.c
+UNPACK_SRC = src/unpack.c
 
 # Install extract → unpack symlink (0 for distro packages that must not clash
 # with GNU libextractor's /usr/bin/extract).
@@ -47,7 +47,7 @@ BIN_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 DIST_BIN_NAME = pack-unpack-$(VERSION)-linux-$(BIN_ARCH)
 DIST_BIN_DIR = dist/$(DIST_BIN_NAME)
 DIST_BIN_TAR = dist/$(DIST_BIN_NAME).tar.gz
-PACK_FILES = VERSION COPYING Makefile README.md CONTRIBUTORS.md Documentation docs/PACKAGING.md PKGBUILD aur pack.c unpack.c include man completions debian install.sh scripts/verify-c-install.sh scripts/install-from-bin-tarball.sh tests .gitignore
+PACK_FILES = VERSION COPYING Makefile README.md CONTRIBUTORS.md Documentation docs/PACKAGING.md PKGBUILD aur src include man completions debian install.sh scripts/verify-c-install.sh scripts/install-from-bin-tarball.sh tests .gitignore
 
 .PHONY: all pack unpack clean install uninstall check help dist-pack dist-bin dist-unpack release
 

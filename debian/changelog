@@ -1,3 +1,15 @@
+pack-unpack (1.6.1-1) UNRELEASED; urgency=medium
+
+  * Move sources to src/; keep packaging/docs at repo root.
+  * unpack: check archive_write_close before free (deferred dir modes).
+  * unpack: default TIME+security only; -p/--preserve for PERM/ACL/FFLAGS.
+  * getopt_long + -- end-of-options for pack and unpack.
+  * RAW fallback only when no solid container was identified.
+  * pack --help lists formats from the compiled formats[] table.
+  * Tests: end-of-options, corrupt-container, hardlink-security.
+
+ -- Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>  Wed, 12 Aug 2026 01:00:00 -0300
+
 pack-unpack (1.6.0-1) UNRELEASED; urgency=medium
 
   * Breaking: -v/--verbose lists members; version is --version only.

@@ -4,6 +4,7 @@
 _unpack() {
     _arguments -s \
         '(-v --verbose)'{-v,--verbose}'[List members as they are unpacked]' \
+        '(-p --preserve)'{-p,--preserve}'[Restore full mode/ACL/flags]' \
         '(--version)--version[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help message]' \
         '(-C --directory)'{-C+,--directory=}'[Change to directory before unpacking]:directory:_files -/' \

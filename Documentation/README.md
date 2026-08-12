@@ -1,7 +1,7 @@
 # Documentation
 
 > **Última verificación:** 2026-08-12
-> **Fuente de verdad:** código en `pack.c`, `unpack.c`; tests en `tests/`; manpages `man/pack.1`, `man/unpack.1`
+> **Fuente de verdad:** código en `src/pack.c`, `src/unpack.c`; tests en `tests/`; manpages `man/pack.1`, `man/unpack.1`
 
 Índice de documentación técnica de **pack-unpack**.
 

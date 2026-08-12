@@ -1,7 +1,7 @@
 # pack-unpack — packaging checklist
 
 > **Última verificación:** 2026-08-12  
-> **Fuente de verdad:** `Makefile`, `debian/`, `PKGBUILD`, `tests/run.sh`, `pack.c`, `unpack.c`, `Documentation/CLI.md`
+> **Fuente de verdad:** `Makefile`, `debian/`, `PKGBUILD`, `tests/run.sh`, `src/pack.c`, `src/unpack.c`, `Documentation/CLI.md`
 
 ## Estado para paquetería
 

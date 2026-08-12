@@ -3,9 +3,11 @@
  * Copyright (C) 2026 Iván Ezequiel Rodriguez
  * License: GPLv3+
  *
- * Usage: unpack [-v] [-C dir] [-f|-n|-i] <archive>
+ * Usage: unpack [-v] [-p] [-C dir] [-f|-n|-i] [--] <archive>
  * Alias: extract (optional symlink; avoid when GNU libextractor owns /usr/bin/extract)
  */
+
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +16,7 @@
 #include <libgen.h>
 #include <unistd.h>
 #include <errno.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <archive.h>
 #include <archive_entry.h>
@@ -30,6 +33,7 @@ typedef enum
 } OverwriteMode;
 
 static int g_verbose = 0;
+static int g_preserve = 0;
 
 static const char *prog_name(const char *argv0)
 {
@@ -49,7 +53,7 @@ static void print_help(const char *argv0)
     const char *name = prog_name(argv0);
 
     printf(
-        "Usage: %s [-v] [-C dir] [-f|-n|-i] <archive>\n"
+        "Usage: %s [-v] [-p] [-C dir] [-f|-n|-i] [--] <archive>\n"
         "Unpacks compressed archives automatically by detecting the format if supported.\n"
         "Canonical command: unpack. Optional alias: extract (symlink).\n"
         "Success is silent; use -v to list members as they are unpacked.\n"
@@ -59,10 +63,13 @@ static void print_help(const char *argv0)
         "  -f, --force          Overwrite existing files without prompting\n"
         "  -n, --no-clobber     Never overwrite; skip existing paths\n"
         "  -i, --interactive    Always prompt before overwrite (requires a tty)\n"
+        "  -p, --preserve       Restore full mode bits, ACLs, and file flags\n"
         "  -v, --verbose        List members as they are unpacked\n"
         "      --version        Show version information and exit\n"
         "  -h, --help           Show this help message and exit\n"
         "\n"
+        "Default extraction restores content, structure, links, and mtime under the\n"
+        "process umask. Use -p for exhaustive metadata (PERM/ACL/FFLAGS).\n"
         "Default overwrite policy: prompt on a tty; refuse conflicts otherwise.\n"
         "Only one of -f, -n, or -i may be specified.\n",
         name
@@ -87,6 +94,7 @@ static void print_version(const char *argv0)
     );
 }
 
+/* Reject absolute paths and ".." components (zip-slip / hardlink targets). */
 static int entry_path_is_safe(const char *pathname)
 {
     const char *p;
@@ -190,7 +198,65 @@ static int is_raw_archive_format(struct archive *a)
 #endif
 }
 
-/* Returns malloc'd name; caller frees. */
+/* True if libarchive already bid a real archive container (not mtree noise). */
+static int is_solid_container_format(struct archive *a)
+{
+    int fmt = archive_format(a);
+    int base;
+
+#ifdef ARCHIVE_FORMAT_BASE_MASK
+    base = fmt & ARCHIVE_FORMAT_BASE_MASK;
+#else
+    base = fmt;
+#endif
+
+    switch (base)
+    {
+    case ARCHIVE_FORMAT_TAR:
+    case ARCHIVE_FORMAT_CPIO:
+    case ARCHIVE_FORMAT_ZIP:
+    case ARCHIVE_FORMAT_7ZIP:
+#ifdef ARCHIVE_FORMAT_ISO9660
+    case ARCHIVE_FORMAT_ISO9660:
+#endif
+#ifdef ARCHIVE_FORMAT_XAR
+    case ARCHIVE_FORMAT_XAR:
+#endif
+#ifdef ARCHIVE_FORMAT_AR
+    case ARCHIVE_FORMAT_AR:
+#endif
+#ifdef ARCHIVE_FORMAT_WARC
+    case ARCHIVE_FORMAT_WARC:
+#endif
+#ifdef ARCHIVE_FORMAT_RAR
+    case ARCHIVE_FORMAT_RAR:
+#endif
+#ifdef ARCHIVE_FORMAT_RAR_V5
+    case ARCHIVE_FORMAT_RAR_V5:
+#endif
+#ifdef ARCHIVE_FORMAT_CAB
+    case ARCHIVE_FORMAT_CAB:
+#endif
+#ifdef ARCHIVE_FORMAT_LHA
+    case ARCHIVE_FORMAT_LHA:
+#endif
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/*
+ * RAW fallback when no solid container was identified.
+ * Corrupt tar.gz (format already TAR) must not become a RAW gunzip.
+ * Bare .gz may falsely bid mtree under format_all — that still retries RAW.
+ */
+static int should_retry_as_raw(struct archive *a)
+{
+    return !is_solid_container_format(a);
+}
+
+/* Returns malloc d name; caller frees. */
 static char *derive_raw_member_name(const char *archive_path)
 {
     static const char *const suffixes[] = {
@@ -284,6 +350,7 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
     int r;
     int status = 1;
     int disk_flags;
+    int closed_ext = 0;
     char *raw_name = NULL;
 
     a = open_archive_reader(filename, 0);
@@ -296,6 +363,12 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
     r = archive_read_next_header(a, &entry);
     if (r != ARCHIVE_OK)
     {
+        if (!should_retry_as_raw(a))
+        {
+            fprintf(stderr, "Error: Failed to read archive: %s\n",
+                    archive_error_string(a));
+            goto fail;
+        }
         archive_read_free(a);
         a = open_archive_reader(filename, 1);
         if (!a)
@@ -319,12 +392,18 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
         goto fail;
     }
 
-    disk_flags = ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM |
-                 ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS |
+    /*
+     * Default: content + structure + links + mtime + security + atomic writes.
+     * Mode bits follow the process umask unless -p/--preserve.
+     */
+    disk_flags = ARCHIVE_EXTRACT_TIME |
                  ARCHIVE_EXTRACT_SECURE_SYMLINKS |
                  ARCHIVE_EXTRACT_SECURE_NODOTDOT |
                  ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS |
                  ARCHIVE_EXTRACT_SAFE_WRITES;
+    if (g_preserve)
+        disk_flags |= ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL |
+                      ARCHIVE_EXTRACT_FFLAGS;
     if (mode == OVERWRITE_FORCE)
         disk_flags |= ARCHIVE_EXTRACT_UNLINK;
     else
@@ -336,6 +415,7 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
     do
     {
         const char *pathname = archive_entry_pathname(entry);
+        const char *hardlink;
         const void *buff;
         size_t size;
         la_int64_t offset;
@@ -362,6 +442,14 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
             goto fail;
         }
 
+        hardlink = archive_entry_hardlink(entry);
+        if (hardlink && !entry_path_is_safe(hardlink))
+        {
+            fprintf(stderr, "Error: Refusing unsafe hardlink target in archive: %s\n",
+                    hardlink);
+            goto fail;
+        }
+
         if (path_exists(pathname) && !is_existing_dir_merge(pathname, entry))
         {
             int overwrite = resolve_overwrite(mode, pathname);
@@ -374,7 +462,6 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
                     goto fail;
                 continue;
             }
-            /* Interactive/default yes: remove so NO_OVERWRITE allows recreate. */
             if (mode != OVERWRITE_FORCE)
             {
                 if (unlink(pathname) != 0 && errno != ENOENT)
@@ -392,11 +479,6 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
         r = archive_write_header(ext, entry);
         if (r != ARCHIVE_OK)
         {
-            /*
-             * Race under -n / default: file appeared after our check.
-             * NO_OVERWRITE makes libarchive refuse; treat as skip for -n,
-             * error otherwise.
-             */
             if (mode == OVERWRITE_NOCLOBBER && path_exists(pathname))
             {
                 if (skip_entry_data(a, pathname) != 0)
@@ -434,12 +516,23 @@ static int unpack_archive(const char *filename, OverwriteMode mode)
         goto fail;
     }
 
+    /* Deferred dir modes / finalization — must check before free. */
+    if (archive_write_close(ext) != ARCHIVE_OK)
+    {
+        fprintf(stderr, "Error: Failed to finalize extraction: %s\n",
+                archive_error_string(ext));
+        closed_ext = 1;
+        goto fail;
+    }
+    closed_ext = 1;
     status = 0;
 
 fail:
     free(raw_name);
     if (ext)
     {
+        if (!closed_ext)
+            (void)archive_write_close(ext);
         archive_write_free(ext);
         ext = NULL;
     }
@@ -458,40 +551,43 @@ int main(int argc, char *argv[])
     const char *argv0 = argc > 0 ? argv[0] : "unpack";
     OverwriteMode mode = OVERWRITE_DEFAULT;
     int mode_set = 0;
-    int i;
+    int c;
     struct stat st;
     char *archive_abs = NULL;
     int status;
 
-    for (i = 1; i < argc; i++)
+    static const struct option longopts[] = {
+        {"directory", required_argument, NULL, 'C'},
+        {"force", no_argument, NULL, 'f'},
+        {"no-clobber", no_argument, NULL, 'n'},
+        {"interactive", no_argument, NULL, 'i'},
+        {"preserve", no_argument, NULL, 'p'},
+        {"verbose", no_argument, NULL, 'v'},
+        {"version", no_argument, NULL, 1},
+        {"help", no_argument, NULL, 'h'},
+        {NULL, 0, NULL, 0}
+    };
+
+    while ((c = getopt_long(argc, argv, "C:fniphv", longopts, NULL)) != -1)
     {
-        if (strcmp(argv[i], "--version") == 0)
+        switch (c)
         {
+        case 1:
             print_version(argv0);
             return 0;
-        }
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
-        {
+        case 'h':
             print_help(argv0);
             return 0;
-        }
-        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
-        {
+        case 'v':
             g_verbose = 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-C") == 0 || strcmp(argv[i], "--directory") == 0)
-        {
-            if (i + 1 >= argc)
-            {
-                fprintf(stderr, "Error: %s requires an argument\n", argv[i]);
-                return 1;
-            }
-            chdir_to = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--force") == 0)
-        {
+            break;
+        case 'p':
+            g_preserve = 1;
+            break;
+        case 'C':
+            chdir_to = optarg;
+            break;
+        case 'f':
             if (mode_set)
             {
                 fprintf(stderr, "Error: Only one of -f, -n, or -i may be specified\n");
@@ -499,10 +595,8 @@ int main(int argc, char *argv[])
             }
             mode = OVERWRITE_FORCE;
             mode_set = 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--no-clobber") == 0)
-        {
+            break;
+        case 'n':
             if (mode_set)
             {
                 fprintf(stderr, "Error: Only one of -f, -n, or -i may be specified\n");
@@ -510,10 +604,8 @@ int main(int argc, char *argv[])
             }
             mode = OVERWRITE_NOCLOBBER;
             mode_set = 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--interactive") == 0)
-        {
+            break;
+        case 'i':
             if (mode_set)
             {
                 fprintf(stderr, "Error: Only one of -f, -n, or -i may be specified\n");
@@ -521,28 +613,25 @@ int main(int argc, char *argv[])
             }
             mode = OVERWRITE_INTERACTIVE;
             mode_set = 1;
-            continue;
-        }
-        if (argv[i][0] == '-' && argv[i][1] != '\0')
-        {
-            fprintf(stderr, "Error: Unknown option: %s\n", argv[i]);
+            break;
+        default:
             print_help(argv0);
             return 1;
         }
-        if (filename)
-        {
-            fprintf(stderr, "Error: Unexpected argument: %s\n", argv[i]);
-            print_help(argv0);
-            return 1;
-        }
-        filename = argv[i];
     }
 
-    if (!filename)
+    if (optind >= argc)
     {
         print_help(argv0);
         return 1;
     }
+    if (optind + 1 < argc)
+    {
+        fprintf(stderr, "Error: Unexpected argument: %s\n", argv[optind + 1]);
+        print_help(argv0);
+        return 1;
+    }
+    filename = argv[optind];
 
     if (stat(filename, &st) != 0 || !S_ISREG(st.st_mode))
     {

@@ -1,21 +1,24 @@
 # pack / unpack — CLI and security contract
 
 > **Última verificación:** 2026-08-12
-> **Fuente de verdad:** [`pack.c`](../pack.c), [`unpack.c`](../unpack.c), [`tests/run.sh`](../tests/run.sh)
+> **Fuente de verdad:** [`src/pack.c`](../src/pack.c), [`src/unpack.c`](../src/unpack.c), [`tests/run.sh`](../tests/run.sh)
 
 ## Interface
 
 ```text
-pack   [-v] [-o output] <format> <source> [source...]
-unpack [-v] [-C dir] [-f|-n|-i] <archive>
+pack   [-v] [-o output] [--] <format> <source> [source...]
+unpack [-v] [-p] [-C dir] [-f|-n|-i] [--] <archive>
 ```
 
 Canonical verbs: **pack** creates; **unpack** consumes. Optional compatibility alias: **extract** → same binary as `unpack` (argv0-aware help/version). Distro packages omit the `extract` symlink so they do not clash with GNU libextractor.
 
-Success is **silent**. `-v` / `--verbose` lists members as they are processed. Version is **only** `--version` (`-v` is not an alias for version).
+Success is **silent**. `-v` / `--verbose` lists members as they are processed. Version is **only** `--version` (`-v` is not an alias for version). End-of-options `--` is supported (e.g. `unpack -- -file.tar`).
 
-Format detection on unpack uses libarchive `archive_read_support_format_all` first, then a **controlled RAW-only retry** when the first header fails (needed for `gz`/`xz`/`zstd`/… because `support_format_all` omits RAW, and enabling both at once can let mtree falsely bid).
+Default unpack restores content, structure, links, and mtime under the process umask, plus security/atomic flags. `-p` / `--preserve` adds full `PERM`/`ACL`/`FFLAGS`.
 
+Format detection on unpack uses libarchive `archive_read_support_format_all` first, then a **controlled RAW-only retry** only when no solid container (tar/cpio/zip/7z/…) was identified — so a corrupt recognized tar.gz fails instead of becoming a RAW gunzip. (Bare `.gz` may falsely bid mtree under `format_all`; that path still retries RAW.)
+
+Sources live under [`src/`](../src/).
 ## Single-file formats
 
 `pack` writes them as `ARCHIVE_FORMAT_RAW` plus a compression filter (`ARCHIVE_FORMAT_EMPTY` has no writer). On unpack, RAW members named `data` are renamed by stripping only a simple outer compression suffix from the archive basename (`foo.txt.gz` → `foo.txt`; `foo.tar.gz` → `foo.tar`). Compound suffixes like `.tar.gz` are not peeled to a bare stem — if `format_all` had recognized a container, unpack would not be on the RAW path.
@@ -51,12 +54,15 @@ Defense in depth:
 
 1. Software checks reject absolute member paths and `..` components (zip-slip).
 2. `archive_write_disk` options always include:
+   - `ARCHIVE_EXTRACT_TIME`
    - `ARCHIVE_EXTRACT_SECURE_SYMLINKS`
    - `ARCHIVE_EXTRACT_SECURE_NODOTDOT`
    - `ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS`
    - `ARCHIVE_EXTRACT_SAFE_WRITES`
 3. Default and `-n` also set `ARCHIVE_EXTRACT_NO_OVERWRITE`.
-
+4. `-p` / `--preserve` adds `PERM` | `ACL` | `FFLAGS` (exhaustive metadata; not default).
+5. After all entries, `archive_write_close(ext)` is checked before `archive_write_free` (deferred directory modes).
+6. Hardlink targets are subject to the same absolute/`..` safety checks as pathnames.
 ### Overwrite policy
 
 | Mode | Flag | Behavior |

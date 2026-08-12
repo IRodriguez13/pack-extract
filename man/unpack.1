@@ -1,4 +1,4 @@
-.TH UNPACK 1 "August 2026" "pack-unpack 1.6.0" "User Commands"
+.TH UNPACK 1 "August 2026" "pack-unpack 1.6.1" "User Commands"
 .SH NAME
 unpack \- automatically unpack compressed archives
 .PP
@@ -15,9 +15,11 @@ Optional compatibility alias:
 .br
 .B unpack
 .RB [ \-v | \-\-verbose ]
+.RB [ \-p | \-\-preserve ]
 .RB [ \-C
 .IR dir ]
 .RB [ \-f | \-n | \-i ]
+.RB [ \-\- ]
 .I archive
 .SH DESCRIPTION
 .B unpack
@@ -36,19 +38,27 @@ is silent. Use
 .B \-v
 to list member paths as they are unpacked.
 .PP
-Absolute member paths and path components equal to
+By default, extraction restores file content, directory structure, symlinks,
+hardlinks, and modification times under the process umask. Absolute member
+paths,
 .B ..
-are rejected in software. Extraction also enables libarchive's
+components, and unsafe hardlink targets are rejected. Extraction enables
 .BR ARCHIVE_EXTRACT_SECURE_SYMLINKS ,
 .BR ARCHIVE_EXTRACT_SECURE_NODOTDOT ,
 .BR ARCHIVE_EXTRACT_SECURE_NOABSOLUTEPATHS ,
 and
-.B ARCHIVE_EXTRACT_SAFE_WRITES
-options. Default and
+.B ARCHIVE_EXTRACT_SAFE_WRITES .
+Default and
 .B \-n
 modes also set
-.B ARCHIVE_EXTRACT_NO_OVERWRITE
-so existing files are not replaced under races.
+.BR ARCHIVE_EXTRACT_NO_OVERWRITE .
+Pass
+.B \-p
+to restore full permission bits, ACLs, and file flags.
+.PP
+After all members are written,
+.B archive_write_close
+is checked so deferred directory metadata failures are not reported as success.
 .PP
 Default overwrite policy: if a member path already exists,
 .B unpack
@@ -79,6 +89,9 @@ Never overwrite; skip members whose paths already exist.
 .B \-i, \-\-interactive
 Always prompt before overwrite (requires a tty; non-tty conflicts still abort).
 .TP
+.B \-p, \-\-preserve
+Restore full mode bits, ACLs, and file flags (in addition to the default mtime).
+.TP
 .B \-v, \-\-verbose
 List members as they are unpacked (and skipped, when applicable).
 .TP
@@ -87,6 +100,11 @@ Display version information and exit.
 .TP
 .B \-h, \-\-help
 Display help message and exit.
+.TP
+.B \-\-
+End of options; following arguments are operands (needed for archives whose
+names begin with
+.BR \- ).
 .PP
 Only one of
 .BR \-f ,
