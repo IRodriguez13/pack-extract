@@ -157,7 +157,7 @@ make PREFIX="$HOME/.local" install          # or: sudo make PREFIX=/usr INSTALL_
 
 Local `.deb`: `dpkg-buildpackage -us -uc -b` (needs `debhelper-compat`).
 
-Packaging notes: [`docs/PACKAGING.md`](docs/PACKAGING.md). CLI contract: [`Documentation/CLI.md`](Documentation/CLI.md). Contributors: [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
+Packaging notes: [`Documentation/PACKAGING.md`](Documentation/PACKAGING.md). CLI contract: [`Documentation/CLI.md`](Documentation/CLI.md). Contributors: [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
 
 ```bash
 pack --version

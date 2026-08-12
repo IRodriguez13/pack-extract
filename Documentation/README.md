@@ -10,7 +10,7 @@
 | [CLI.md](CLI.md) | Interfaz, round-trip, seguridad, alias `extract` |
 | [TESTING.md](TESTING.md) | Matriz script → propiedad (solo lo que `make check` prueba) |
 | [OPERATION.md](OPERATION.md) | Operación / invariantes verificados (pre-RFC) |
-| [../docs/PACKAGING.md](../docs/PACKAGING.md) | Empaquetado Debian / AUR / releases |
+| [PACKAGING.md](PACKAGING.md) | Empaquetado Debian / AUR / releases |
 | [../README.md](../README.md) | Vista general e instalación |
 
 Los manpages instalados (`man pack`, `man unpack`) son la referencia de usuario en el sistema. Para claims de comportamiento, priorizar [`TESTING.md`](TESTING.md) sobre prosa del README.

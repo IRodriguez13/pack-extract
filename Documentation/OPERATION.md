@@ -35,4 +35,4 @@ make PREFIX=/usr/local install   # caller elige PREFIX; default Makefile = /usr/
 
 ## Releases
 
-Versión canónica: archivo `VERSION`. Assets esperados (tras `make release`): source tarball, binary tarball linux-amd64, `.deb`. Detalle de empaquetado: [`../docs/PACKAGING.md`](../docs/PACKAGING.md).
+Versión canónica: archivo `VERSION`. Assets esperados (tras `make release`): source tarball, binary tarball linux-amd64, `.deb`. Detalle de empaquetado: [`PACKAGING.md`](PACKAGING.md).
