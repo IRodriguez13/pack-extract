@@ -11,7 +11,7 @@ depends=('libarchive')
 makedepends=('gcc' 'make' 'pkgconf')
 # Do not install extract alias — avoids clash with libextractor's /usr/bin/extract.
 source=("${pkgname}-${pkgver}.tar.gz::${url}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('bb33cdf1f0c83f284372a5951c0c7f18876127fc6ff325ea7c949e9718db5b17')
 
 build() {
   cd "${pkgname}-${pkgver}"
