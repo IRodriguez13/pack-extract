@@ -13,7 +13,7 @@ provides=('pack-unpack')
 conflicts=('pack-unpack')
 options=('!strip')
 source=("pack-unpack-${pkgver}-linux-amd64.tar.gz::${url}/releases/download/v${pkgver}/pack-unpack-${pkgver}-linux-amd64.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('13dcb26e9d6c1dd2e479c90c962cb803938c7b1dad4f1a6b93c22572179e2d15')
 
 package() {
   cd "pack-unpack-${pkgver}-linux-amd64"
